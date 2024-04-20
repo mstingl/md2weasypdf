@@ -2,6 +2,12 @@
 
 Print PDFs from Markdown Files using Weasyprint
 
+## Installation
+
+```shell
+pip install md2weasypdf
+```
+
 ## Usage
 
 ```shell
