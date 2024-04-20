@@ -9,7 +9,7 @@ from markdown.util import code_escape
 
 class TocTreeprocessor(toc.TocTreeprocessor):
     def __init__(self, md: Markdown, config: dict[str, Any]) -> None:
-        self.id_prefix = config.pop('id_prefix')
+        self.id_prefix = config.pop('id_prefix', '')
         super().__init__(md, config)
 
     def build_toc_div(self, toc_list: list) -> etree.Element:

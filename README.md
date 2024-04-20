@@ -45,3 +45,47 @@ layout: doc1
 ---
 Lorem ipsum...
 ```
+
+## Markdown Extensions
+
+### Table of Contents
+
+Insert a table of contents using `[TOC]`. The table of contents will be generated automatically based on the headlines (lines starting with one or multiple `#`) in the document.
+
+### Table of Abbreviations
+
+Insert a table of abbreviations using `[TOA]`. The table of abbreviations will be generated automatically based on defined abbreviations (using `*[Abbreviation]: Explanation`) in the document.
+
+### Footnotes
+
+Footnotes let you reference relevant information without disrupting the flow of what you're trying to say:
+
+```md
+Here's a simple footnote,[^1] and here's a longer one.[^bignote]
+
+[^1]: This is the first footnote.
+
+[^bignote]: Here's one with multiple paragraphs and code.
+
+    Indent paragraphs to include them in the footnote.
+
+    `{ my code }`
+
+    Add as many paragraphs as you like.
+```
+
+It is possible to reference to the same footnote by using the same footnote label.
+
+### Subscript
+
+Use tildes `~` around text to create a subscript formatting.
+
+### Checkboxes
+
+Use `[ ]` to create a checkbox. Use `[x]` to mark a checkbox as checked.
+
+### Input Fields
+
+Use `[>input_id]` to create a text input. To create a textarea, add `|textarea` after the input id. To create a date field, add `|YYYY-MM-DD` after the input id.
+
+To add a placeholder, append the placeholder text within parens to the end of the input id: `[>input_id] (placeholder text)`.

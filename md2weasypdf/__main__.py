@@ -7,6 +7,7 @@ from typing import Callable, Optional
 
 import typer
 from rich.console import Console
+from typing_extensions import Annotated
 from watchdog.events import FileSystemEvent, FileSystemEventHandler
 from watchdog.observers import Observer
 
@@ -59,16 +60,19 @@ class FileChangeHandler(FileSystemEventHandler):
 
 
 def main(
-    input: Path = typer.Argument(help="Folder or file used as input"),
-    output_dir: Path = typer.Argument(),
+    input: Annotated[Path, typer.Argument(help="Folder or file used as input")],
+    output_dir: Annotated[Path, typer.Argument(help="Folder where resulting files are written to")] = Path("."),
     *,
-    bundle: bool = typer.Option(False, help="Bundle all input documents into a single output file"),
-    title: Optional[str] = typer.Option(None, help="Title of the resulting document. Can only be used in conjunction with bundle."),
-    layouts_dir: Path = typer.Option("layouts", help="Base folder containing the available layouts"),
-    layout: Optional[str] = typer.Option(None, help="Default layout to use"),
-    output_html: bool = typer.Option(False, help="Additionally output the raw HTML file which is used to create the pdf"),
-    filename_filter: Optional[str] = typer.Option(None, help="Regular expression to filter files in input directory by subpath and/or filename"),
-    watch: bool = False,
+    bundle: Annotated[bool, typer.Option(help="Bundle all input documents into a single output file")] = False,
+    title: Annotated[Optional[str], typer.Option(help="Title of the resulting document. Can only be used in conjunction with bundle.")] = None,
+    layouts_dir: Annotated[Path, typer.Option(help="Base folder containing the available layouts")] = "layouts",
+    layout: Annotated[Optional[str], typer.Option(help="Default layout to use")] = None,
+    output_html: Annotated[bool, typer.Option(help="Additionally output the raw HTML file which is used to create the pdf")] = False,
+    filename_filter: Annotated[
+        Optional[str],
+        typer.Option(help="Regular expression to filter files in input directory by subpath and/or filename"),
+    ] = None,
+    watch: Annotated[bool, typer.Option(help="Watch input directory for changes and re-run the conversion")] = False,
 ):
     try:
         printer = Printer(
@@ -84,7 +88,7 @@ def main(
 
     except ValueError as error:
         console.print("Error:", error, style="bold red")
-        return
+        raise typer.Exit(1)
 
     if watch:
         observer = Observer()

@@ -28,12 +28,15 @@ class Document(NamedTuple):
 
 class Printer:
     @staticmethod
-    def _ensure_path(path: Path):
+    def _ensure_path(path: Path, dir: Optional[bool] = None):
         if not path.is_absolute():
             path = Path(os.path.join(os.getcwd(), path))
 
         if not path.exists():
             raise FileNotFoundError("Path does not exist")
+
+        if dir is True and not path.is_dir():
+            raise ValueError(f"{path} is not a directory")
 
         return path
 
@@ -49,8 +52,8 @@ class Printer:
         filename_filter: Optional[str] = None,
     ):
         self.input = self._ensure_path(input)
-        self.output_dir = self._ensure_path(output_dir)
-        self.layouts_dir = self._ensure_path(layouts_dir)
+        self.output_dir = self._ensure_path(output_dir, dir=True)
+        self.layouts_dir = self._ensure_path(layouts_dir, dir=True)
         self.bundle = bundle
         self.title = title
         self.layout = layout
@@ -83,6 +86,10 @@ class Printer:
 
             md = Markdown(
                 extensions=[
+                    extensions.FootnoteExtension(),
+                    extensions.TableExtension(),
+                    extensions.ToaExtension(),
+                    extensions.AbbrExtension(),
                     extensions.TocExtension(id_prefix=filename, toc_depth="2-6"),
                     extensions.SubscriptExtension(),
                     extensions.TextboxExtension(),
@@ -137,19 +144,15 @@ class Printer:
             title=self.title if self.bundle else content.title or "",
         )
 
-        target = os.path.join(
-            self.output_dir,
-            self.title.replace(" ", "_") if self.bundle else content.filename.removesuffix(".md"),
-        )
-
+        output_filename = self.title.replace(" ", "_") if self.bundle else content.filename.removesuffix(".md")
         if self.output_html:
-            with open(target + ".html", "w", encoding="utf-8") as html_file:
+            with open(self.output_dir / f"{output_filename}.html", "w", encoding="utf-8") as html_file:
                 html_file.write(html)
 
-        HTML(string=html, base_url=layout_dir).write_pdf(target=target + ".pdf")
+        HTML(string=html, base_url=str(layout_dir)).write_pdf(target=self.output_dir / f"{output_filename}.pdf")
 
     def _get_layout_dir(self, layout: str):
-        if os.path.isdir(layout_dir := os.path.join(self.layouts_dir, layout)):
+        if os.path.isdir(layout_dir := self.layouts_dir / layout):
             return layout_dir
 
         raise ValueError("Layout could not be found")
@@ -157,7 +160,7 @@ class Printer:
     @cache
     def _load_template(self, layout):
         layout_dir = self._get_layout_dir(layout)
-        with open(os.path.join(layout_dir, "index.html"), mode="rb") as file:
+        with open(layout_dir / "index.html", mode="rb") as file:
             template = self.jinja_env.from_string(str(file.read(), "utf-8"))
 
         return template, layout_dir
