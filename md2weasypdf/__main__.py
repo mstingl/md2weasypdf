@@ -90,27 +90,26 @@ def main(
         console.print("Error:", error, style="bold red")
         raise typer.Exit(1)
 
+    def execute():
+        try:
+            for document, output_path in printer.execute():
+                console.log(
+                    f"Created PDF",
+                    f'"{document.title}"',
+                    f"(out of {len(document.articles)})" if len(document.articles) > 1 else f"(from {document.articles[0].source})",
+                    "->",
+                    output_path,
+                )
+
+            console.log("Completed document creation")
+
+        except ValueError as error:
+            console.log("Error:", error, style="bold red")
+
+        except Exception:
+            console.print_exception()
+
     if watch:
-
-        def execute():
-            try:
-                for document, output_path in printer.execute():
-                    console.log(
-                        f"Created PDF",
-                        f'"{document.title}"',
-                        f"(out of {len(document.articles)})" if len(document.articles) > 1 else f"(from {document.articles[0].source})",
-                        "->",
-                        output_path,
-                    )
-
-                console.log("Completed document creation")
-
-            except ValueError as error:
-                console.log("Error:", error, style="bold red")
-
-            except Exception:
-                console.print_exception()
-
         observer = Observer()
         add_watch_directory = partial(observer.schedule, FileChangeHandler(execute), recursive=True)
         add_watch_directory(input)
@@ -130,7 +129,7 @@ def main(
 
             return
 
-    printer.execute()
+    execute()
 
 
 if __name__ == "__main__":
