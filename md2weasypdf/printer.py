@@ -152,7 +152,7 @@ class Printer:
                 if os.path.basename(article_path).startswith("_"):
                     continue
 
-                if self.filename_filter and not re.search(self.filename_filter, article_path):
+                if self.filename_filter and not re.search(self.filename_filter, Path(article_path).relative_to(self.input).as_posix()):
                     continue
 
                 articles.append(self._load_article(article_path))
