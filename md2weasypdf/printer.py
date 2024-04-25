@@ -40,6 +40,7 @@ class Document:
     template: Template
     layout_dir: Path
     articles: List[Article]
+    meta: dict[str, object]
 
     @staticmethod
     def get_commit():
@@ -54,6 +55,7 @@ class Document:
             commit=self.get_commit(),
             articles=self.articles,
             title=self.title,
+            meta=self.meta,
         )
 
         output_filename = self.title.replace(" ", "_")
@@ -94,6 +96,7 @@ class Printer:
         layout: Optional[str] = None,
         output_html: bool = False,
         filename_filter: Optional[str] = None,
+        meta: Optional[dict[str, object]] = None,
     ):
         self.input = self._ensure_path(input)
         self.output_dir = self._ensure_path(output_dir, dir=True, create=True)
@@ -103,6 +106,7 @@ class Printer:
         self.layout = layout
         self.output_html = output_html
         self.filename_filter = re.compile(filename_filter) if filename_filter else None
+        self.meta = meta
         self.jinja_env = Environment(
             autoescape=select_autoescape(),
             loader=FileSystemLoader(searchpath=[self.layouts_dir]),
@@ -179,7 +183,8 @@ class Printer:
             doc = Document(
                 self.title,
                 *self._load_template(self.layout),
-                articles,
+                articles=articles,
+                meta=self.meta,
             )
             yield doc, doc.write_pdf(**write_options)
 
@@ -189,7 +194,8 @@ class Printer:
                     doc = Document(
                         article.title,
                         *self._load_template(article.meta.get('layout', self.layout)),
-                        [article],
+                        articles=[article],
+                        meta=self.meta | article.meta,
                     )
 
                 except ValueError as error:

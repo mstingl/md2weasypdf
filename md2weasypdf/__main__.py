@@ -1,3 +1,4 @@
+import json
 import time
 import warnings
 from functools import partial
@@ -72,6 +73,10 @@ def main(
         Optional[str],
         typer.Option(help="Regular expression to filter files in input directory by subpath and/or filename"),
     ] = None,
+    meta: Annotated[
+        Optional[str],
+        typer.Option(help="Metadata for document generation passed to the layout, pass values using a JSON object"),
+    ] = None,
     watch: Annotated[bool, typer.Option(help="Watch input directory for changes and re-run the conversion")] = False,
 ):
     try:
@@ -84,6 +89,7 @@ def main(
             layout=layout,
             output_html=output_html,
             filename_filter=filename_filter,
+            meta=json.loads(meta) if meta else None,
         )
 
     except ValueError as error:
