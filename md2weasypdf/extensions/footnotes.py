@@ -1,4 +1,5 @@
 import xml.etree.ElementTree as etree
+from collections import OrderedDict
 from dataclasses import dataclass
 from typing import Dict
 
@@ -42,7 +43,10 @@ class FootnoteInlineProcessor(InlineProcessor):
 
 class FootnoteExtension(footnotes.FootnoteExtension):
     def __init__(self):
-        self.footnotes: Dict[str, Footnote] = {}
+        self.footnotes: OrderedDict[str, Footnote] = OrderedDict()
+        self.unique_prefix = 0
+        self.found_refs: dict[str, int] = {}
+        self.used_refs: set[str] = set()
 
     def setFootnote(self, id, text):
         self.footnotes[id] = Footnote(text, len(self.footnotes) + 1)
