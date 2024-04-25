@@ -106,7 +106,7 @@ class Printer:
         self.layout = layout
         self.output_html = output_html
         self.filename_filter = re.compile(filename_filter) if filename_filter else None
-        self.meta = meta
+        self.meta = meta or {}
         self.jinja_env = Environment(
             autoescape=select_autoescape(),
             loader=FileSystemLoader(searchpath=[self.layouts_dir]),
