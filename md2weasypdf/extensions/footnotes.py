@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from typing import Dict
 
 from markdown import Markdown
-from markdown.extensions import Extension, footnotes
+from markdown.extensions import footnotes
 from markdown.inlinepatterns import InlineProcessor
 
 
@@ -40,11 +40,7 @@ class FootnoteInlineProcessor(InlineProcessor):
             return el, m.start(0), m.end(0)
 
 
-def FootnoteTreeprocessor(Treeprocessor):
-    pass
-
-
-class FootnoteExtension(Extension):
+class FootnoteExtension(footnotes.FootnoteExtension):
     def __init__(self):
         self.footnotes: Dict[str, Footnote] = {}
 
@@ -59,4 +55,3 @@ class FootnoteExtension(Extension):
         md.parser.blockprocessors.register(footnotes.FootnoteBlockProcessor(self), 'footnote', 17)
         FOOTNOTE_RE = r'\[\^([^\]]*)\]'  # blah blah [^1] blah
         md.inlinePatterns.register(FootnoteInlineProcessor(FOOTNOTE_RE, self), 'footnote', 170)
-        # md.treeprocessors.register(FootnoteTreeprocessor(self), 'footnote', 45)

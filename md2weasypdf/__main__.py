@@ -66,7 +66,7 @@ def main(
     *,
     bundle: Annotated[bool, typer.Option(help="Bundle all input documents into a single output file")] = False,
     title: Annotated[Optional[str], typer.Option(help="Title of the resulting document. Can only be used in conjunction with bundle.")] = None,
-    layouts_dir: Annotated[Path, typer.Option(help="Base folder containing the available layouts")] = "layouts",
+    layouts_dir: Annotated[Path, typer.Option(help="Base folder containing the available layouts")] = Path("./layouts"),
     layout: Annotated[Optional[str], typer.Option(help="Default layout to use")] = None,
     output_html: Annotated[bool, typer.Option(help="Additionally output the raw HTML file which is used to create the pdf")] = False,
     filename_filter: Annotated[

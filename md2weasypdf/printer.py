@@ -181,7 +181,7 @@ class Printer:
 
         if self.bundle:
             doc = Document(
-                self.title,
+                self.title,  # type: ignore  # title cannot be empty when bundle is set
                 *self._load_template(self.layout),
                 articles=articles,
                 meta=self.meta,
