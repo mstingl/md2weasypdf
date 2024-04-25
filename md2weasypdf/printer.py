@@ -24,7 +24,14 @@ class Article(NamedTuple):
     content: str
     meta: dict[str, object]
     has_custom_headline: bool
-    hash: str
+
+    @property
+    def hash(self):
+        return str(check_output(["git", "hash-object", self.source]), "utf-8")
+
+    @property
+    def modified_date(self):
+        return str(check_output(["git", "log", "-1", "--pretty=%cs", self.source]), "utf-8").strip()
 
 
 @dataclass
@@ -34,10 +41,17 @@ class Document:
     layout_dir: Path
     articles: List[Article]
 
+    @staticmethod
+    def get_commit():
+        if commit_sha_env := os.getenv("CI_COMMIT_SHORT_SHA", None):
+            return commit_sha_env
+
+        return str(check_output(["git", "rev-parse", "HEAD"]), "utf-8")[:8] + ("-dirty" if check_output(["git", "status", "-s"]) else "")
+
     def write_pdf(self, output_dir: Path, output_html: bool = False):
         html = self.template.render(
             date=date.today().isoformat(),
-            commit=os.getenv("CI_COMMIT_SHORT_SHA", "00000000"),
+            commit=self.get_commit(),
             articles=self.articles,
             title=self.title,
         )
@@ -141,7 +155,6 @@ class Printer:
             content=md.convert(content),
             meta=article.metadata,
             has_custom_headline=content.startswith("# "),
-            hash=str(check_output(["git", "hash-object", source]), "utf-8"),
         )
 
     def execute(self):

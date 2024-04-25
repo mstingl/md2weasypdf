@@ -21,17 +21,23 @@ class FootnoteInlineProcessor(InlineProcessor):
 
     def handleMatch(self, m, data):
         note_id = m.group(1)
-        footnote = self.footnotes.footnotes[note_id]
-        if not footnote.inserted:
-            el = etree.Element("span", attrib={"class": "footnote", "data-footnote-id": note_id})
-            el.text = footnote.text
-            footnote.inserted = True
+        try:
+            footnote = self.footnotes.footnotes[note_id]
+
+        except KeyError:
+            return None, None, None
 
         else:
-            el = etree.Element("sup", attrib={"class": "footnote-ref", "data-footnote-id": note_id})
-            el.text = str(footnote.index)
+            if not footnote.inserted:
+                el = etree.Element("span", attrib={"class": "footnote", "data-footnote-id": note_id})
+                el.text = footnote.text
+                footnote.inserted = True
 
-        return el, m.start(0), m.end(0)
+            else:
+                el = etree.Element("sup", attrib={"class": "footnote-ref", "data-footnote-id": note_id})
+                el.text = str(footnote.index)
+
+            return el, m.start(0), m.end(0)
 
 
 def FootnoteTreeprocessor(Treeprocessor):
