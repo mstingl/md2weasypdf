@@ -212,10 +212,18 @@ class Printer:
 
         raise ValueError("Layout \"{layout}\" could not be found")
 
+    @staticmethod
+    def try_files(path: Path, filenames: List[str]):
+        for filename in filenames:
+            if (filepath := path / filename).exists():
+                return filepath
+
+        raise FileNotFoundError
+
     @cache
     def _load_template(self, layout):
         layout_dir = self._get_layout_dir(layout)
-        with open(layout_dir / "index.html", mode="rb") as file:
+        with self.try_files(layout_dir, ["index.html.j2", "index.html"]).open(mode="rb") as file:
             template = self.jinja_env.from_string(str(file.read(), "utf-8"))
 
         return template, layout_dir

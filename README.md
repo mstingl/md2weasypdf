@@ -1,6 +1,6 @@
 # md2weasypdf
 
-Print PDFs from Markdown Files using Weasyprint
+Print PDFs from Markdown Files and a HTML template/layout using Weasyprint.
 
 ## Installation
 
@@ -14,6 +14,8 @@ pip install md2weasypdf
 python -m md2weasypdf <input_folder_or_file> <output_path>
 ```
 
+When a layout is not specified in the files frontmatter (see below), the `--layout` option has to be passed.
+
 ### Watch Mode
 
 The watch mode is intended for creation of layouts. The given layouts directory and input directory will be watched for changes.
@@ -23,6 +25,10 @@ For VSCode the extension [vscode-pdf](https://marketplace.visualstudio.com/items
 ```shell
 python -m md2weasypdf <input_folder_or_file> <output_path> --watch
 ```
+
+## Layout
+
+The document layout must be given via the command option `--layout` or in the frontmatter of the single file. As layout a directory name inside the `./layouts` directory (default, can be changed using `--layouts-dir`) is expected. In the layout directory, a `index.html.j2` or `index.html` file is expected, which is loaded as entrypoint. The file is parsed using Jinja2.
 
 ## Input
 
@@ -84,7 +90,7 @@ Use tildes `~` around text to create a subscript formatting.
 
 Use `[ ]` to create a checkbox. Use `[x]` to mark a checkbox as checked.
 
-### Input Fields
+### Fields
 
 Use `[>input_id]` to create a text input. To create a textarea, add `|textarea` after the input id. To create a date field, add `|YYYY-MM-DD` after the input id.
 
