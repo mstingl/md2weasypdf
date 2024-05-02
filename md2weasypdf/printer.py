@@ -140,6 +140,8 @@ class Printer:
                 extensions.SubscriptExtension(),
                 extensions.TextboxExtension(),
                 extensions.CheckboxExtension(),
+                extensions.FencedCodeExtension(),
+                extensions.MermaidExtension(),
                 GridTableExtension(),
             ],
         )

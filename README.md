@@ -95,3 +95,7 @@ Use `[ ]` to create a checkbox. Use `[x]` to mark a checkbox as checked.
 Use `[>input_id]` to create a text input. To create a textarea, add `|textarea` after the input id. To create a date field, add `|YYYY-MM-DD` after the input id.
 
 To add a placeholder, append the placeholder text within parens to the end of the input id: `[>input_id] (placeholder text)`.
+
+### Mermaid.js
+
+Mermaid.js can be used in code blocks with the language `mermaid`. To convert the mermaid code into an image, [mermaid-cli](https://github.com/mermaid-js/mermaid-cli) is required to be installed on the system.
