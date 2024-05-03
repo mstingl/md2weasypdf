@@ -33,7 +33,7 @@ class TextboxInlineProcessor(InlineProcessor):
 class TextboxExtension(Extension):
     def extendMarkdown(self, md: Markdown) -> None:
         md.inlinePatterns.register(
-            TextboxInlineProcessor(r"\[>(\w+)?(\|([\w-]+))?\](\{[^\}]+\})?"),
+            TextboxInlineProcessor(r"\[>(\w+)?(\|([\w-]+))?\](?:\{([^\}]+)\})?"),
             "textbox",
-            150,
+            200,
         )
