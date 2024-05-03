@@ -64,7 +64,13 @@ class Document:
                 html_file.write(html)
 
         pdf_output_target = output_dir / f"{output_filename}.pdf"
-        HTML(string=html, base_url=str(self.layout_dir)).write_pdf(target=pdf_output_target)
+        HTML(
+            string=html,
+            base_url=str(self.layout_dir),
+        ).write_pdf(
+            target=pdf_output_target,
+            pdf_forms=True,
+        )
         return pdf_output_target
 
 
@@ -123,10 +129,7 @@ class Printer:
             if self.title:
                 raise ValueError("A title cannot be specified when not using bundle.")
 
-    def _load_article(self, source: Path | str):
-        if isinstance(source, str):
-            source = Path(source)
-
+    def _load_article(self, source: Path):
         with open(source, mode="r", encoding="utf-8") as file:
             article = frontmatter.load(file)
 
@@ -163,15 +166,18 @@ class Printer:
             has_custom_headline=content.startswith("# "),
         )
 
-    def execute(self):
+    def execute(self, documents: Optional[List[Path]] = None):
         self._load_template.cache_clear()
         articles: List[Article] = []
         if self.input.is_dir():
-            for article_path in sorted(iglob(os.path.join(self.input, "**/*.md"), recursive=True)):
-                if os.path.basename(article_path).startswith("_"):
+            if not documents:
+                documents = [Path(file) for file in sorted(iglob(os.path.join(self.input, "**/*.md"), recursive=True))]
+
+            for article_path in documents:
+                if article_path.name.startswith("_"):
                     continue
 
-                if self.filename_filter and not re.search(self.filename_filter, Path(article_path).relative_to(self.input).as_posix()):
+                if self.filename_filter and not re.search(self.filename_filter, article_path.relative_to(self.input).as_posix()):
                     continue
 
                 articles.append(self._load_article(article_path))

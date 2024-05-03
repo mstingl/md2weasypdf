@@ -40,18 +40,24 @@ def debounce(wait):
 
 
 class FileChangeHandler(FileSystemEventHandler):
-    def __init__(self, render: Callable[[], None]) -> None:
+    def __init__(self, render: Callable[[Optional[Path]], None]) -> None:
         self._render = render
 
     @debounce(1)
-    def render(self):
-        self._render()
+    def render(self, event: FileSystemEvent):
+        path = None
+        if not event.is_directory and event.event_type in ('modified'):
+            path = Path(event.src_path)
+            if path.suffix != '.md':
+                path = None
+
+        self._render(path)
         console.log("Render complete")
 
     def on_created(self, event: FileSystemEvent):
         console.log("Rerender")
         try:
-            self.render()
+            self.render(event)
 
         except Exception:
             console.print_exception()
@@ -96,9 +102,9 @@ def main(
         console.print("Error:", error, style="bold red")
         raise typer.Exit(1)
 
-    def execute():
+    def execute(path: Optional[Path] = None):
         try:
-            for document, output_path in printer.execute():
+            for document, output_path in printer.execute(documents=[path] if path else None):
                 console.log(
                     f"Created PDF",
                     f'"{document.title}"',
