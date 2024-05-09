@@ -8,12 +8,14 @@ from glob import iglob
 from pathlib import Path
 from subprocess import check_output
 from typing import List, NamedTuple, Optional
+from urllib.error import URLError
+from urllib.parse import urlparse
 
 import frontmatter
 from jinja2 import Environment, FileSystemLoader, Template, select_autoescape
 from markdown import Markdown
 from markdown_grid_tables import GridTableExtension
-from weasyprint import HTML
+from weasyprint import HTML, default_url_fetcher
 
 from . import extensions
 
@@ -67,11 +69,31 @@ class Document:
         HTML(
             string=html,
             base_url=str(self.layout_dir),
+            url_fetcher=self.url_fetcher,
         ).write_pdf(
             target=pdf_output_target,
             pdf_forms=True,
         )
         return pdf_output_target
+
+    def url_fetcher(self, url: str, timeout=10, ssl_context=None):
+        try:
+            return default_url_fetcher(url, timeout=timeout, ssl_context=ssl_context)
+
+        except URLError:
+            if not url.startswith('file://'):
+                raise
+
+            local_relative_path = Path(urlparse(url).path.removeprefix('/')).relative_to(self.layout_dir)
+            articles_source_directories = {a.source.parent for a in self.articles}
+            for source_dir in articles_source_directories:
+                try:
+                    return default_url_fetcher((source_dir / local_relative_path).as_uri(), timeout=timeout, ssl_context=ssl_context)
+
+                except URLError:
+                    pass
+
+            raise
 
 
 class Printer:
