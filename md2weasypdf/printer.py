@@ -161,7 +161,7 @@ class Printer:
                 extensions.TableExtension(),
                 extensions.ToaExtension(),
                 extensions.AbbrExtension(),
-                extensions.TocExtension(id_prefix=source.name, toc_depth="2-6"),
+                extensions.TocExtension(id_prefix=source.name, toc_depth=article.metadata.get("toc_depth", "2-6")),
                 extensions.SubscriptExtension(),
                 extensions.TextboxExtension(),
                 extensions.CheckboxExtension(),
