@@ -108,7 +108,7 @@ class TocExtension(toc.TocExtension):
     TreeProcessorClass = TocTreeprocessor
 
     def __init__(self, **kwargs):
-        id_prefix = kwargs.pop('id_prefix')
+        id_prefix = kwargs.pop('id_prefix', '')
         super().__init__(**kwargs)
 
         self.config['id_prefix'] = [id_prefix, '']

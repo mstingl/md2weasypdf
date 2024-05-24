@@ -167,6 +167,7 @@ class Printer:
                 extensions.CheckboxExtension(),
                 extensions.FencedCodeExtension(),
                 extensions.MermaidExtension(),
+                extensions.TableCaptionExtension(),
                 GridTableExtension(),
             ],
         )
