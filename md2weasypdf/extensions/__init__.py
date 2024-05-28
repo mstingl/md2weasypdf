@@ -1,6 +1,7 @@
 from markdown.extensions.abbr import AbbrExtension
 from markdown.extensions.fenced_code import FencedCodeExtension
 from markdown.extensions.tables import TableExtension
+from markdown_grid_tables import GridTableExtension
 
 from .checkbox import CheckboxExtension
 from .footnotes import FootnoteExtension

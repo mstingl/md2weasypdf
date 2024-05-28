@@ -14,7 +14,6 @@ from urllib.parse import urlparse
 import frontmatter
 from jinja2 import Environment, FileSystemLoader, Template, select_autoescape
 from markdown import Markdown
-from markdown_grid_tables import GridTableExtension
 from weasyprint import HTML, default_url_fetcher
 
 from . import extensions
@@ -155,22 +154,22 @@ class Printer:
         with open(source, mode="r", encoding="utf-8") as file:
             article = frontmatter.load(file)
 
-        md = Markdown(
-            extensions=[
-                extensions.FootnoteExtension(),
-                extensions.TableExtension(),
-                extensions.ToaExtension(),
-                extensions.AbbrExtension(),
-                extensions.TocExtension(id_prefix=source.name, toc_depth=article.metadata.get("toc_depth", "2-6")),
-                extensions.SubscriptExtension(),
-                extensions.TextboxExtension(),
-                extensions.CheckboxExtension(),
-                extensions.FencedCodeExtension(),
-                extensions.MermaidExtension(),
-                extensions.TableCaptionExtension(),
-                GridTableExtension(),
-            ],
-        )
+        enabled_extensions = [
+            extensions.FootnoteExtension(),
+            extensions.TableExtension(),
+            extensions.ToaExtension(),
+            extensions.AbbrExtension(),
+            extensions.TocExtension(id_prefix=source.name, toc_depth=article.metadata.get("toc_depth", "2-6")),
+            extensions.SubscriptExtension(),
+            extensions.TextboxExtension(),
+            extensions.CheckboxExtension(),
+            extensions.FencedCodeExtension(),
+            extensions.MermaidExtension(),
+            extensions.TableCaptionExtension() if article.metadata.get("table_caption", True) else None,
+            extensions.GridTableExtension(),
+        ]
+
+        md = Markdown(extensions=[e for e in enabled_extensions if e])
 
         content = (
             Environment(
