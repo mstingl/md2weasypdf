@@ -167,9 +167,10 @@ class Printer:
             extensions.MermaidExtension(),
             extensions.TableCaptionExtension() if article.metadata.get("table_caption", True) else None,
             extensions.GridTableExtension(),
+            extensions.SaneListExtension(),
         ]
 
-        md = Markdown(extensions=[e for e in enabled_extensions if e])
+        md = Markdown(extensions=[e for e in enabled_extensions if e], tab_length=int(str(article.metadata.get("tab_length", 2))))
 
         content = (
             Environment(
