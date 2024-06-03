@@ -7,7 +7,7 @@ from functools import cache
 from glob import iglob
 from pathlib import Path
 from subprocess import check_output
-from typing import List, NamedTuple, Optional
+from typing import Callable, List, NamedTuple, Optional, Tuple
 from urllib.error import URLError
 from urllib.parse import urlparse
 
@@ -17,6 +17,12 @@ from markdown import Markdown
 from weasyprint import HTML, default_url_fetcher
 
 from . import extensions
+
+
+class FileSystemWithFrontmatterLoader(FileSystemLoader):
+    def get_source(self, environment: Environment, template: str) -> Tuple[str, str, Callable[[], bool]]:
+        contents, path, uptodate = super().get_source(environment, template)
+        return frontmatter.loads(contents).content, path, uptodate
 
 
 class Article(NamedTuple):
@@ -136,7 +142,7 @@ class Printer:
         self.meta = meta or {}
         self.jinja_env = Environment(
             autoescape=select_autoescape(),
-            loader=FileSystemLoader(searchpath=[self.layouts_dir]),
+            loader=FileSystemWithFrontmatterLoader(searchpath=[self.layouts_dir]),
         )
 
         if self.bundle:
@@ -175,7 +181,7 @@ class Printer:
         content = (
             Environment(
                 autoescape=select_autoescape(),
-                loader=FileSystemLoader(searchpath=[os.path.dirname(source), self.input, os.getcwd()]),
+                loader=FileSystemWithFrontmatterLoader(searchpath=[os.path.dirname(source), self.input, os.getcwd()]),
             )
             .from_string(article.content)
             .render()
