@@ -28,9 +28,34 @@ class FileSystemWithFrontmatterLoader(FileSystemLoader):
 class Article(NamedTuple):
     source: Path
     title: str
-    content: str
+    content_md: str
     meta: dict[str, object]
-    has_custom_headline: bool
+
+    @property
+    def content(self) -> str:
+        enabled_extensions = [
+            extensions.FootnoteExtension(),
+            extensions.TableExtension(),
+            extensions.ToaExtension(),
+            extensions.AbbrExtension(),
+            extensions.TocExtension(id_prefix=self.source.name, toc_depth=self.meta.get("toc_depth", "2-6")),
+            extensions.SubscriptExtension(),
+            extensions.TextboxExtension(),
+            extensions.CheckboxExtension(),
+            extensions.FencedCodeExtension(),
+            extensions.MermaidExtension(),
+            extensions.TableCaptionExtension() if self.meta.get("table_caption", True) else None,
+            extensions.GridTableExtension(),
+            extensions.SaneListExtension(),
+        ]
+
+        md = Markdown(extensions=[e for e in enabled_extensions if e], tab_length=int(str(self.meta.get("tab_length", 2))))
+
+        return md.convert(self.content_md)
+
+    @property
+    def has_custom_headline(self) -> bool:
+        return self.content.strip(" \r\n").startswith("<h1")
 
     @property
     def hash(self):
@@ -128,6 +153,7 @@ class Printer:
         title: Optional[str] = None,
         layout: Optional[str] = None,
         output_html: bool = False,
+        output_md: bool = False,
         filename_filter: Optional[str] = None,
         meta: Optional[dict[str, object]] = None,
     ):
@@ -138,6 +164,7 @@ class Printer:
         self.title = title
         self.layout = layout
         self.output_html = output_html
+        self.output_md = output_md
         self.filename_filter = re.compile(filename_filter) if filename_filter else None
         self.meta = meta or {}
         self.jinja_env = Environment(
@@ -160,24 +187,6 @@ class Printer:
         with open(source, mode="r", encoding="utf-8") as file:
             article = frontmatter.load(file)
 
-        enabled_extensions = [
-            extensions.FootnoteExtension(),
-            extensions.TableExtension(),
-            extensions.ToaExtension(),
-            extensions.AbbrExtension(),
-            extensions.TocExtension(id_prefix=source.name, toc_depth=article.metadata.get("toc_depth", "2-6")),
-            extensions.SubscriptExtension(),
-            extensions.TextboxExtension(),
-            extensions.CheckboxExtension(),
-            extensions.FencedCodeExtension(),
-            extensions.MermaidExtension(),
-            extensions.TableCaptionExtension() if article.metadata.get("table_caption", True) else None,
-            extensions.GridTableExtension(),
-            extensions.SaneListExtension(),
-        ]
-
-        md = Markdown(extensions=[e for e in enabled_extensions if e], tab_length=int(str(article.metadata.get("tab_length", 2))))
-
         content = (
             Environment(
                 autoescape=select_autoescape(),
@@ -190,9 +199,8 @@ class Printer:
         return Article(
             source=source,
             title=source.name.removesuffix(".md").replace("_", " "),
-            content=md.convert(content),
+            content_md=content,
             meta=article.metadata,
-            has_custom_headline=content.startswith("# "),
         )
 
     def execute(self, documents: Optional[List[Path]] = None):
@@ -213,6 +221,15 @@ class Printer:
 
         else:
             articles.append(self._load_article(self.input))
+
+        if self.output_md:
+            for article in articles:
+                try:
+                    with open(self.output_dir / article.source.name, "w") as file:
+                        file.write(article.content_md)
+
+                except Exception as error:
+                    raise ValueError(f"Could not output md for {article.source}: {error}") from error
 
         write_options = {"output_dir": self.output_dir, "output_html": self.output_html}
 

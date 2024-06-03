@@ -1,4 +1,5 @@
 import json
+import os
 import time
 import warnings
 from functools import partial
@@ -68,13 +69,14 @@ class FileChangeHandler(FileSystemEventHandler):
 
 def main(
     input: Annotated[Path, typer.Argument(help="Folder or file used as input")],
-    output_dir: Annotated[Path, typer.Argument(help="Folder where resulting files are written to")] = Path("."),
+    output_dir: Annotated[Path, typer.Argument(help="Folder where resulting files are written to")] = Path(os.getenv('OUTPUT_PATH', ".")),
     *,
     bundle: Annotated[bool, typer.Option(help="Bundle all input documents into a single output file")] = False,
     title: Annotated[Optional[str], typer.Option(help="Title of the resulting document. Can only be used in conjunction with bundle.")] = None,
     layouts_dir: Annotated[Path, typer.Option(help="Base folder containing the available layouts")] = Path("./layouts"),
     layout: Annotated[Optional[str], typer.Option(help="Default layout to use")] = None,
     output_html: Annotated[bool, typer.Option(help="Additionally output the raw HTML file which is used to create the pdf")] = False,
+    output_md: Annotated[bool, typer.Option(help="Additionally output the raw Markdown which is used to create the HTML for the pdf")] = False,
     filename_filter: Annotated[
         Optional[str],
         typer.Option(help="Regular expression to filter files in input directory by subpath and/or filename"),
@@ -94,6 +96,7 @@ def main(
             title=title,
             layout=layout,
             output_html=output_html,
+            output_md=output_md,
             filename_filter=filename_filter,
             meta=json.loads(meta) if meta else None,
         )
