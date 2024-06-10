@@ -1,3 +1,4 @@
+import hashlib
 import os
 import re
 import warnings
@@ -20,16 +21,23 @@ from . import extensions
 
 
 class FileSystemWithFrontmatterLoader(FileSystemLoader):
+    def __init__(self, *args, loaded_paths: set[Path] = None, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self.loaded_paths = loaded_paths
+
     def get_source(self, environment: Environment, template: str) -> Tuple[str, str, Callable[[], bool]]:
         contents, path, uptodate = super().get_source(environment, template)
+        self.loaded_paths.add(Path(path))
         return frontmatter.loads(contents).content, path, uptodate
 
 
-class Article(NamedTuple):
+@dataclass
+class Article:
     source: Path
     title: str
     content_md: str
     meta: dict[str, object]
+    loaded_paths: set[Path]
 
     @property
     def content(self) -> str:
@@ -59,11 +67,16 @@ class Article(NamedTuple):
 
     @property
     def hash(self):
-        return str(check_output(["git", "hash-object", self.source]), "utf-8")
+        hashes = [check_output(["git", "hash-object", path]) for path in [self.source, *self.loaded_paths]]
+        if not self.loaded_paths:
+            return str(hashes[0], "utf-8")
+
+        return hashlib.sha1(b"".join(hashes)).hexdigest()
 
     @property
     def modified_date(self):
-        return str(check_output(["git", "log", "-1", "--pretty=%cs", self.source]), "utf-8").strip()
+        dates = [str(check_output(["git", "log", "-1", "--pretty=%cs", path]), "utf-8").strip() for path in [self.source, *self.loaded_paths]]
+        return sorted(dates, reverse=True)[0]
 
 
 @dataclass
@@ -169,7 +182,7 @@ class Printer:
         self.meta = meta or {}
         self.jinja_env = Environment(
             autoescape=select_autoescape(),
-            loader=FileSystemWithFrontmatterLoader(searchpath=[self.layouts_dir]),
+            loader=FileSystemLoader(searchpath=[self.layouts_dir]),
         )
 
         if self.bundle:
@@ -187,20 +200,20 @@ class Printer:
         with open(source, mode="r", encoding="utf-8") as file:
             article = frontmatter.load(file)
 
-        content = (
-            Environment(
-                autoescape=select_autoescape(),
-                loader=FileSystemWithFrontmatterLoader(searchpath=[os.path.dirname(source), self.input, os.getcwd()]),
-            )
-            .from_string(article.content)
-            .render()
-        )
+        loaded_paths = set()
+        article_template = Environment(
+            autoescape=select_autoescape(),
+            loader=FileSystemWithFrontmatterLoader(searchpath=[os.path.dirname(source), self.input, os.getcwd()], loaded_paths=loaded_paths),
+        ).from_string(article.content)
+
+        content = article_template.render()
 
         return Article(
             source=source,
             title=source.name.removesuffix(".md").replace("_", " "),
             content_md=content,
             meta=article.metadata,
+            loaded_paths=loaded_paths,
         )
 
     def execute(self, documents: Optional[List[Path]] = None):
