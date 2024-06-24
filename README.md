@@ -92,7 +92,7 @@ Use `[ ]` to create a checkbox. Use `[x]` to mark a checkbox as checked.
 
 ### Fields
 
-Use `[>input_id]` to create a text input. To create a textarea, add `|textarea` after the input id. To create a date field, add `|YYYY-MM-DD` after the input id.
+Use `[>input_id]` to create a text input. To create a textarea, add `|textbox` after the input id. To create a date field, add `|YYYY-MM-DD` after the input id.
 
 To add a placeholder, append the placeholder text within parens to the end of the input id: `[>input_id] (placeholder text)`.
 
