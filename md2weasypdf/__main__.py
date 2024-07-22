@@ -4,8 +4,9 @@ import time
 import warnings
 from functools import partial
 from pathlib import Path
+from subprocess import check_output
 from threading import Timer
-from typing import Callable, Optional
+from typing import Callable, List, Optional, Union
 
 import typer
 from rich.console import Console
@@ -86,6 +87,7 @@ def main(
         typer.Option(help="Metadata for document generation passed to the layout, pass values using a JSON object"),
     ] = None,
     watch: Annotated[bool, typer.Option(help="Watch input directory for changes and re-run the conversion")] = False,
+    only_modified_in_commit: Annotated[Optional[str], typer.Option(help="Only print documents which have been changed in the given commit")] = None,
 ):
     try:
         printer = Printer(
@@ -105,11 +107,22 @@ def main(
         console.print("Error:", error, style="bold red")
         raise typer.Exit(1)
 
+    modified_files: List[Path] = []
+    if only_modified_in_commit:
+        modified_files = [
+            Path(file).absolute()
+            for file in str(check_output(["git", "diff-tree", "--no-commit-id", "--name-only", "-r", only_modified_in_commit]), "utf-8").splitlines()
+        ]
+
     def execute(path: Optional[Path] = None):
+        documents = [path] if path else printer.get_documents()
+        if only_modified_in_commit:
+            documents = [file for file in documents if file in modified_files]
+
         try:
-            for document, output_path in printer.execute(documents=[path] if path else None):
+            for document, output_path in printer.execute(documents=documents):
                 console.log(
-                    f"Created PDF",
+                    "Created PDF",
                     f'"{document.title}"',
                     f"(out of {len(document.articles)})" if len(document.articles) > 1 else f"(from {document.articles[0].source})",
                     "->",

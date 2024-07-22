@@ -222,12 +222,15 @@ class Printer:
             loaded_paths=loaded_paths,
         )
 
+    def get_documents(self):
+        return [Path(file) for file in sorted(iglob(os.path.join(self.input, "**/*.md"), recursive=True))]
+
     def execute(self, documents: Optional[List[Path]] = None):
         self._load_template.cache_clear()
         articles: List[Article] = []
         if self.input.is_dir():
-            if not documents:
-                documents = [Path(file) for file in sorted(iglob(os.path.join(self.input, "**/*.md"), recursive=True))]
+            if documents is None:
+                documents = self.get_documents()
 
             for article_path in documents:
                 if article_path.name.startswith("_"):
