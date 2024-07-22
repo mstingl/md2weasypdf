@@ -34,10 +34,17 @@ class FileSystemWithFrontmatterLoader(FileSystemLoader):
 @dataclass
 class Article:
     source: Path
-    title: str
     content_md: str
     meta: dict[str, object]
     loaded_paths: set[Path]
+
+    @property
+    def title(self) -> str:
+        return re.sub(r"(\([^\)]+\))|(\[[^\]]+\])", "", self.source.name.removesuffix(".md").replace("_", " ")).strip()
+
+    @property
+    def filename(self) -> str:
+        return re.sub(r"\s+", " ", re.sub(r"\([^\)]+\)", "", self.source.name.removesuffix(".md"))).strip()
 
     @property
     def content(self) -> str:
@@ -82,6 +89,7 @@ class Article:
 @dataclass
 class Document:
     title: str
+    filename: str
     template: Template
     layout_dir: Path
     articles: List[Article]
@@ -103,12 +111,11 @@ class Document:
             meta=self.meta,
         )
 
-        output_filename = self.title.replace(" ", "_")
         if output_html:
-            with open(output_dir / f"{output_filename}.html", "w", encoding="utf-8") as html_file:
+            with open(output_dir / f"{self.filename}.html", "w", encoding="utf-8") as html_file:
                 html_file.write(html)
 
-        pdf_output_target = output_dir / f"{output_filename}.pdf"
+        pdf_output_target = output_dir / f"{self.filename}.pdf"
         HTML(
             string=html,
             base_url=str(self.layout_dir),
@@ -210,7 +217,6 @@ class Printer:
 
         return Article(
             source=source,
-            title=source.name.removesuffix(".md").replace("_", " "),
             content_md=content,
             meta=article.metadata,
             loaded_paths=loaded_paths,
@@ -249,6 +255,7 @@ class Printer:
         if self.bundle:
             doc = Document(
                 self.title,  # type: ignore  # title cannot be empty when bundle is set
+                self.title.replace(" ", "_"),
                 *self._load_template(self.layout),
                 articles=articles,
                 meta=self.meta,
@@ -260,6 +267,7 @@ class Printer:
                 try:
                     doc = Document(
                         article.title,
+                        article.filename,
                         *self._load_template(article.meta.get('layout', self.layout)),
                         articles=[article],
                         meta=self.meta | article.meta,
