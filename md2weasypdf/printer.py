@@ -2,17 +2,18 @@ import hashlib
 import os
 import re
 import warnings
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date
 from functools import cache
-from glob import iglob
+from glob import glob
 from pathlib import Path
 from subprocess import check_output
-from typing import Callable, List, NamedTuple, Optional, Tuple
+from typing import Callable, List, Optional, Tuple
 from urllib.error import URLError
 from urllib.parse import urlparse
 
 import frontmatter
+import yaml
 from jinja2 import Environment, FileSystemLoader, Template, select_autoescape
 from markdown import Markdown
 from weasyprint import HTML, default_url_fetcher
@@ -34,17 +35,70 @@ class FileSystemWithFrontmatterLoader(FileSystemLoader):
 @dataclass
 class Article:
     source: Path
-    content_md: str
-    meta: dict[str, object]
-    loaded_paths: set[Path]
+    template_loader_searchpaths: list[str | Path] = field(default_factory=list)
+
+    def __post_init__(self):
+        self.loaded_paths: set[Path] = set()
+        self.meta: dict[str, object] = {}
+
+        if self.source.suffix == ".md":
+            self._init_md()
+
+        elif self.source.suffix == ".yaml":
+            self._init_yaml()
+
+        else:
+            raise NotImplementedError(f"No handling for {self.source.suffix} files implemented")
+
+    def _get_template_env(self):
+        return Environment(
+            autoescape=select_autoescape(),
+            loader=FileSystemWithFrontmatterLoader(
+                searchpath=[os.path.dirname(self.source), *self.template_loader_searchpaths, os.getcwd()],
+                loaded_paths=self.loaded_paths,
+            ),
+        )
+
+    def _init_md(self):
+        with open(self.source, mode="r", encoding="utf-8") as file:
+            article = frontmatter.load(file)
+
+        article_template = self._get_template_env().from_string(article.content)
+
+        self.meta = article.metadata
+        self.content_md = article_template.render()
+
+    @staticmethod
+    @cache
+    def _yaml_md_template(directory: Path, max_depth=2):
+        depth = 0
+        while depth < max_depth:
+            depth += 1
+            if (template_path := directory / "_template.md").exists() or (template_path := directory / "_template.md.j2").exists():
+                with open(template_path, mode="r", encoding="utf-8") as file:
+                    return frontmatter.load(file)
+
+            directory = directory.parent
+
+        raise FileNotFoundError(f"No _template.md file found in {directory} or parent directories (going up max. {max_depth} levels)")
+
+    def _init_yaml(self):
+        with open(self.source, mode="r", encoding="utf-8") as file:
+            article = yaml.load(file, Loader=yaml.Loader)
+
+        md_template = self._yaml_md_template(self.source.parent)
+        article_template = self._get_template_env().from_string(md_template.content)
+
+        self.meta = {**md_template.metadata, **getattr(article, "metadata", {})}
+        self.content_md = article_template.render(article)
 
     @property
     def title(self) -> str:
-        return re.sub(r"(\([^\)]+\))|(\[[^\]]+\])", "", self.source.name.removesuffix(".md").replace("_", " ")).strip()
+        return re.sub(r"(\([^\)]+\))|(\[[^\]]+\])", "", self.source.name.removesuffix(self.source.suffix).replace("_", " ")).strip()
 
     @property
     def filename(self) -> str:
-        return re.sub(r"\s+", " ", re.sub(r"\([^\)]+\)", "", self.source.name.removesuffix(".md"))).strip()
+        return re.sub(r"\s+", " ", re.sub(r"\([^\)]+\)", "", self.source.name.removesuffix(self.source.suffix))).strip()
 
     @property
     def content(self) -> str:
@@ -204,26 +258,15 @@ class Printer:
                 raise ValueError("A title cannot be specified when not using bundle.")
 
     def _load_article(self, source: Path):
-        with open(source, mode="r", encoding="utf-8") as file:
-            article = frontmatter.load(file)
-
-        loaded_paths = set()
-        article_template = Environment(
-            autoescape=select_autoescape(),
-            loader=FileSystemWithFrontmatterLoader(searchpath=[os.path.dirname(source), self.input, os.getcwd()], loaded_paths=loaded_paths),
-        ).from_string(article.content)
-
-        content = article_template.render()
-
-        return Article(
-            source=source,
-            content_md=content,
-            meta=article.metadata,
-            loaded_paths=loaded_paths,
-        )
+        return Article(source=source, template_loader_searchpaths=[self.input])
 
     def get_documents(self):
-        return [Path(file) for file in sorted(iglob(os.path.join(self.input, "**/*.md"), recursive=True))]
+        return [
+            Path(file)
+            for file in sorted(
+                glob(os.path.join(self.input, "**/*.md"), recursive=True) + glob(os.path.join(self.input, "**/*.yaml"), recursive=True)
+            )
+        ]
 
     def execute(self, documents: Optional[List[Path]] = None):
         self._load_template.cache_clear()
