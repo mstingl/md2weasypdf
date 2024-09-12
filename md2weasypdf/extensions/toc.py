@@ -3,7 +3,14 @@ from typing import Any
 
 from markdown import Markdown
 from markdown.extensions import toc
-from markdown.extensions.toc import get_name, nest_toc_tokens, slugify, stashedHTML2text, unescape, unique
+from markdown.extensions.toc import (
+    get_name,
+    nest_toc_tokens,
+    slugify,
+    stashedHTML2text,
+    unescape,
+    unique,
+)
 from markdown.util import code_escape
 
 
@@ -26,8 +33,14 @@ class TocTreeprocessor(toc.TocTreeprocessor):
             for item in toc_list:
                 # List item link, to be inserted into the toc div
                 li = etree.SubElement(parent, "li", attrib={"style": f"--level: {level}em"})
-                link = etree.SubElement(li, "a")
-                etree.SubElement(
+                link = etree.SubElement(
+                    li,
+                    "a",
+                    attrib={
+                        "href": "#" + item.get('id', ''),
+                    },
+                )
+                span = etree.SubElement(
                     link,
                     "span",
                     attrib={
@@ -35,6 +48,7 @@ class TocTreeprocessor(toc.TocTreeprocessor):
                         "href": "#" + item.get('id', ''),
                     },
                 )
+                span.text = item.get("name")
                 etree.SubElement(link, "div", attrib={"class": "tocspacer"})
                 etree.SubElement(
                     link,
@@ -71,7 +85,7 @@ class TocTreeprocessor(toc.TocTreeprocessor):
                 # Do not override pre-existing ids
                 if "id" not in el.attrib:
                     innertext = unescape(stashedHTML2text(text, self.md))
-                    el.attrib["id"] = unique(self.id_prefix + self.sep + self.slugify(innertext, self.sep), used_ids)
+                    el.attrib["id"] = unique((self.id_prefix + self.sep if self.id_prefix else '') + self.slugify(innertext, self.sep), used_ids)
 
                 if int(el.tag[-1]) >= self.toc_top and int(el.tag[-1]) <= self.toc_bottom:
                     toc_tokens.append(

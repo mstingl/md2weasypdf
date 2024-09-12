@@ -8,7 +8,7 @@ from functools import cache
 from glob import glob
 from pathlib import Path
 from subprocess import check_output
-from typing import Callable, List, Optional, Tuple
+from typing import Callable, Iterable, List, Optional, Tuple
 from urllib.error import URLError
 from urllib.parse import urlparse
 
@@ -102,23 +102,7 @@ class Article:
 
     @property
     def content(self) -> str:
-        enabled_extensions = [
-            extensions.FootnoteExtension(),
-            extensions.TableExtension(),
-            extensions.ToaExtension(),
-            extensions.AbbrExtension(),
-            extensions.TocExtension(id_prefix=self.source.name, toc_depth=self.meta.get("toc_depth", "2-6")),
-            extensions.SubscriptExtension(),
-            extensions.TextboxExtension(),
-            extensions.CheckboxExtension(),
-            extensions.FencedCodeExtension(),
-            extensions.MermaidExtension(),
-            extensions.TableCaptionExtension() if self.meta.get("table_caption", True) else None,
-            extensions.GridTableExtension(),
-            extensions.SaneListExtension(),
-        ]
-
-        md = Markdown(extensions=[e for e in enabled_extensions if e], tab_length=int(str(self.meta.get("tab_length", 2))))
+        md = Markdown(extensions=[e for e in Printer.enabled_extensions(self) if e], tab_length=int(str(self.meta.get("tab_length", 2))))
 
         return md.convert(self.content_md)
 
@@ -218,6 +202,24 @@ class Printer:
 
         return path
 
+    @staticmethod
+    def enabled_extensions(article: Article):
+        return [
+            extensions.FootnoteExtension(),
+            extensions.TableExtension(),
+            extensions.ToaExtension(),
+            extensions.AbbrExtension(),
+            extensions.TocExtension(id_prefix=article.source.name, toc_depth=article.meta.get("toc_depth", "2-6")),
+            extensions.SubscriptExtension(),
+            extensions.TextboxExtension(),
+            extensions.CheckboxExtension(),
+            extensions.FencedCodeExtension(),
+            extensions.MermaidExtension(),
+            extensions.TableCaptionExtension() if article.meta.get("table_caption", True) else None,
+            extensions.GridTableExtension(),
+            extensions.SaneListExtension(),
+        ]
+
     def __init__(
         self,
         input: Path,
@@ -268,29 +270,31 @@ class Printer:
             )
         ]
 
+    def get_articles(self, documents: Optional[List[Path]] = None) -> Iterable[Article]:
+        if not self.input.is_dir():
+            yield self._load_article(self.input)
+            return
+
+        if documents is None:
+            documents = self.get_documents()
+
+        for article_path in documents:
+            if article_path.name.startswith("_"):
+                continue
+
+            if self.filename_filter and not re.search(self.filename_filter, article_path.relative_to(self.input).as_posix()):
+                continue
+
+            yield self._load_article(article_path)
+
     def execute(self, documents: Optional[List[Path]] = None):
         self._load_template.cache_clear()
-        articles: List[Article] = []
-        if self.input.is_dir():
-            if documents is None:
-                documents = self.get_documents()
-
-            for article_path in documents:
-                if article_path.name.startswith("_"):
-                    continue
-
-                if self.filename_filter and not re.search(self.filename_filter, article_path.relative_to(self.input).as_posix()):
-                    continue
-
-                articles.append(self._load_article(article_path))
-
-        else:
-            articles.append(self._load_article(self.input))
+        articles = list(self.get_articles(documents))
 
         if self.output_md:
             for article in articles:
                 try:
-                    with open(self.output_dir / article.source.name, "w") as file:
+                    with open(self.output_dir / article.source.name, "w", encoding="utf-8") as file:
                         file.write(article.content_md)
 
                 except Exception as error:
@@ -344,7 +348,7 @@ class Printer:
     @cache
     def _load_template(self, layout):
         layout_dir = self._get_layout_dir(layout)
-        with self.try_files(layout_dir, ["index.html.j2", "index.html"]).open(mode="rb") as file:
-            template = self.jinja_env.from_string(str(file.read(), "utf-8"))
+        with self.try_files(layout_dir, ["index.html.j2", "index.html"]).open(mode="r", encoding="utf-8") as file:
+            template = self.jinja_env.from_string(file.read())
 
         return template, layout_dir

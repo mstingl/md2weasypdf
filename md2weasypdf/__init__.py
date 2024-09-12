@@ -1,2 +1,2 @@
 from . import extensions
-from .printer import Printer
+from .printer import Article, Printer
