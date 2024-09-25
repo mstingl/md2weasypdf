@@ -6,7 +6,7 @@ from functools import partial
 from pathlib import Path
 from subprocess import check_output
 from threading import Timer
-from typing import Callable, List, Optional, Union
+from typing import Callable, List, Optional
 
 import typer
 from rich.console import Console
@@ -74,6 +74,9 @@ def main(
     *,
     bundle: Annotated[bool, typer.Option(help="Bundle all input documents into a single output file")] = False,
     title: Annotated[Optional[str], typer.Option(help="Title of the resulting document. Can only be used in conjunction with bundle.")] = None,
+    alt_title: Annotated[
+        Optional[str], typer.Option(help="Alt-Title of the resulting document. Can only be used in conjunction with bundle.")
+    ] = None,
     layouts_dir: Annotated[Path, typer.Option(help="Base folder containing the available layouts")] = Path("./layouts"),
     layout: Annotated[Optional[str], typer.Option(help="Default layout to use")] = None,
     output_html: Annotated[bool, typer.Option(help="Additionally output the raw HTML file which is used to create the pdf")] = False,
@@ -96,6 +99,7 @@ def main(
             layouts_dir=layouts_dir,
             bundle=bundle,
             title=title,
+            alt_title=alt_title,
             layout=layout,
             output_html=output_html,
             output_md=output_md,

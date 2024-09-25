@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 from datetime import date
 from functools import cache
 from glob import glob
+from itertools import chain
 from pathlib import Path
 from subprocess import check_output
 from typing import Callable, Iterable, List, Optional, Tuple
@@ -13,6 +14,7 @@ from urllib.error import URLError
 from urllib.parse import urlparse
 
 import frontmatter
+import lxml.html
 import yaml
 from jinja2 import Environment, FileSystemLoader, Template, select_autoescape
 from markdown import Markdown
@@ -111,6 +113,22 @@ class Article:
         return self.content.strip(" \r\n").startswith("<h1")
 
     @property
+    def alt_title(self) -> str:
+        if not self.has_custom_headline:
+            return self.title
+
+        return lxml.html.fromstring("<root>" + self.content.strip(" \r\n") + "</root>").find("h1").text_content()
+
+    @property
+    def authors(self):
+        return set(
+            chain.from_iterable(
+                (author.strip().split("\t")[1] for author in str(check_output(["git", "shortlog", "-n", "-s", "--", path]), "utf-8").splitlines())
+                for path in [self.source, *self.loaded_paths]
+            )
+        )
+
+    @property
     def hash(self):
         hashes = [check_output(["git", "hash-object", path]) for path in [self.source, *self.loaded_paths]]
         if not self.loaded_paths:
@@ -127,11 +145,16 @@ class Article:
 @dataclass
 class Document:
     title: str
+    alt_title: str
     filename: str
     template: Template
     layout_dir: Path
     articles: List[Article]
     meta: dict[str, object]
+
+    @property
+    def authors(self):
+        return set(chain.from_iterable(article.authors for article in self.articles))
 
     @staticmethod
     def get_commit():
@@ -146,7 +169,9 @@ class Document:
             commit=self.get_commit(),
             articles=self.articles,
             title=self.title,
+            alt_title=self.alt_title,
             meta=self.meta,
+            document=self,
         )
 
         if output_html:
@@ -227,6 +252,7 @@ class Printer:
         layouts_dir: Path = Path("layouts"),
         bundle: bool = False,
         title: Optional[str] = None,
+        alt_title: Optional[str] = None,
         layout: Optional[str] = None,
         output_html: bool = False,
         output_md: bool = False,
@@ -238,6 +264,7 @@ class Printer:
         self.layouts_dir = self._ensure_path(layouts_dir, dir=True)
         self.bundle = bundle
         self.title = title
+        self.alt_title = alt_title
         self.layout = layout
         self.output_html = output_html
         self.output_md = output_md
@@ -305,6 +332,7 @@ class Printer:
         if self.bundle:
             doc = Document(
                 self.title,  # type: ignore  # title cannot be empty when bundle is set
+                self.alt_title or self.title,  # type: ignore  # title cannot be empty when bundle is set
                 self.title.replace(" ", "_"),
                 *self._load_template(self.layout),
                 articles=articles,
@@ -317,6 +345,7 @@ class Printer:
                 try:
                     doc = Document(
                         article.title,
+                        article.alt_title,
                         article.filename,
                         *self._load_template(article.meta.get('layout', self.layout)),
                         articles=[article],
