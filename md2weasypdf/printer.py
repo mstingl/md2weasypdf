@@ -236,6 +236,7 @@ class Printer:
             extensions.AbbrExtension(),
             extensions.TocExtension(id_prefix=article.source.name, toc_depth=article.meta.get("toc_depth", "2-6")),
             extensions.SubscriptExtension(),
+            extensions.SuperscriptExtension(),
             extensions.TextboxExtension(),
             extensions.CheckboxExtension(),
             extensions.FencedCodeExtension(),

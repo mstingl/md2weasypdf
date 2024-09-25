@@ -8,6 +8,7 @@ from .checkbox import CheckboxExtension
 from .footnotes import FootnoteExtension
 from .mermaid import MermaidExtension
 from .subscript import SubscriptExtension
+from .superscript import SuperscriptExtension
 from .table_caption import TableCaptionExtension
 from .textbox import TextboxExtension
 from .toa import ToaExtension
