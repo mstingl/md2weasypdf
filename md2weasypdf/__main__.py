@@ -3,8 +3,9 @@ import os
 import time
 import warnings
 from functools import partial
+from hashlib import sha1
 from pathlib import Path
-from subprocess import check_output
+from subprocess import DEVNULL, CalledProcessError, check_call, check_output
 from threading import Timer
 from typing import Callable, List, Optional
 
@@ -77,7 +78,12 @@ def main(
     alt_title: Annotated[
         Optional[str], typer.Option(help="Alt-Title of the resulting document. Can only be used in conjunction with bundle.")
     ] = None,
-    layouts_dir: Annotated[Path, typer.Option(help="Base folder containing the available layouts")] = Path("./layouts"),
+    layouts_dir: Annotated[
+        str,
+        typer.Option(
+            help="Base folder containing the available layouts, alternatively also a remote git url can be provided from which the latest version is used"
+        ),
+    ] = "./layouts",
     layout: Annotated[Optional[str], typer.Option(help="Default layout to use")] = None,
     output_html: Annotated[bool, typer.Option(help="Additionally output the raw HTML file which is used to create the pdf")] = False,
     output_md: Annotated[bool, typer.Option(help="Additionally output the raw Markdown which is used to create the HTML for the pdf")] = False,
@@ -92,11 +98,35 @@ def main(
     watch: Annotated[bool, typer.Option(help="Watch input directory for changes and re-run the conversion")] = False,
     only_modified_in_commit: Annotated[Optional[str], typer.Option(help="Only print documents which have been changed in the given commit")] = None,
 ):
+    if layouts_dir.endswith(".git") and (layouts_dir.startswith("https://") or layouts_dir.startswith("ssh://") or layouts_dir.startswith("git@")):
+        layouts_dir_path = Path(f"~/.cache/md2weasypdf/{sha1(layouts_dir.encode('utf-8')).hexdigest()}").expanduser()
+        layouts_dir_path.mkdir(parents=True, exist_ok=True)
+        try:
+            if not (layouts_dir_path / ".git").exists():
+                console.print("Pulling layouts repository", style="cyan")
+                try:
+                    check_call(["git", "clone", layouts_dir, layouts_dir_path], stdout=DEVNULL)
+
+                except CalledProcessError:
+                    layouts_dir_path.unlink(missing_ok=True)
+                    raise
+
+            else:
+                console.print("Updating layouts repository", style="cyan")
+                check_call(["git", "-C", layouts_dir_path, "pull"], stdout=DEVNULL)
+
+        except CalledProcessError as error:
+            console.print(f"Error while fetching layouts repository: {error}", style="bold red")
+            raise typer.Exit(9) from error
+
+    else:
+        layouts_dir_path = Path(layouts_dir)
+
     try:
         printer = Printer(
             input=input,
             output_dir=output_dir,
-            layouts_dir=layouts_dir,
+            layouts_dir=layouts_dir_path,
             bundle=bundle,
             title=title,
             alt_title=alt_title,
