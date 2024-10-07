@@ -207,7 +207,7 @@ def main(
         observer = Observer()
         add_watch_directory = partial(observer.schedule, FileChangeHandler(watch_execute), recursive=True)
         add_watch_directory(input.parent if input.is_file() else input)
-        add_watch_directory(layouts_dir)
+        add_watch_directory(layouts_dir_path)
 
         observer.start()
 
