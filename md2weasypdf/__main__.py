@@ -197,9 +197,9 @@ def main(
 
     if watch:
 
-        def watch_execute():
+        def watch_execute(*args, **kwargs):
             try:
-                execute()
+                return execute(*args, **kwargs)
 
             except Exception:
                 pass
