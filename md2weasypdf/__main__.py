@@ -79,11 +79,11 @@ def main(
         Optional[str], typer.Option(help="Alt-Title of the resulting document. Can only be used in conjunction with bundle.")
     ] = None,
     layouts_dir: Annotated[
-        str,
+        Optional[str],
         typer.Option(
             help="Base folder containing the available layouts, alternatively also a remote git url can be provided from which the latest version is used"
         ),
-    ] = "./layouts",
+    ] = None,
     layout: Annotated[Optional[str], typer.Option(help="Default layout to use")] = None,
     output_html: Annotated[bool, typer.Option(help="Additionally output the raw HTML file which is used to create the pdf")] = False,
     output_md: Annotated[bool, typer.Option(help="Additionally output the raw Markdown which is used to create the HTML for the pdf")] = False,
@@ -98,7 +98,11 @@ def main(
     watch: Annotated[bool, typer.Option(help="Watch input directory for changes and re-run the conversion")] = False,
     only_modified_in_commit: Annotated[Optional[str], typer.Option(help="Only print documents which have been changed in the given commit")] = None,
 ):
-    if layouts_dir.endswith(".git") and (layouts_dir.startswith("https://") or layouts_dir.startswith("ssh://") or layouts_dir.startswith("git@")):
+    if (
+        layouts_dir
+        and layouts_dir.endswith(".git")
+        and (layouts_dir.startswith("https://") or layouts_dir.startswith("ssh://") or layouts_dir.startswith("git@"))
+    ):
         layouts_dir_path = Path(f"~/.cache/md2weasypdf/{sha1(layouts_dir.encode('utf-8')).hexdigest()}").expanduser()
         layouts_dir_path.mkdir(parents=True, exist_ok=True)
         try:
@@ -120,7 +124,21 @@ def main(
             raise typer.Exit(9) from error
 
     else:
-        layouts_dir_path = Path(layouts_dir)
+        if not layouts_dir:
+            layouts_dir_path = Path(os.path.join(os.getcwd(), "layouts"))
+
+            if not layouts_dir_path.exists():
+                layouts_dir_path = Path(__file__).parent / "layouts"
+                print(layouts_dir_path)
+                if not layout:
+                    layout = "basic"
+
+        else:
+            layouts_dir_path = Path(layouts_dir)
+
+        if not layouts_dir_path.exists():
+            console.print("Layouts dir does not exists", style="bold red")
+            raise typer.Exit(11)
 
     try:
         printer = Printer(
@@ -165,21 +183,35 @@ def main(
 
             console.log("Completed document creation")
 
+        except PermissionError:
+            console.log("Cannot write to file, check permissions or opened files", style="bold red")
+            raise
+
         except ValueError as error:
             console.log("Error:", error, style="bold red")
+            raise
 
         except Exception:
             console.print_exception()
+            raise
 
     if watch:
+
+        def watch_execute():
+            try:
+                execute()
+
+            except Exception:
+                pass
+
         observer = Observer()
-        add_watch_directory = partial(observer.schedule, FileChangeHandler(execute), recursive=True)
+        add_watch_directory = partial(observer.schedule, FileChangeHandler(watch_execute), recursive=True)
         add_watch_directory(input.parent if input.is_file() else input)
         add_watch_directory(layouts_dir)
 
         observer.start()
 
-        execute()
+        watch_execute()
 
         try:
             while True:
@@ -191,7 +223,12 @@ def main(
 
             return
 
-    execute()
+    else:
+        try:
+            execute()
+
+        except Exception as error:
+            raise typer.Exit(1) from error
 
 
 if __name__ == "__main__":

@@ -3,12 +3,12 @@ import os
 import re
 import warnings
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, datetime
 from functools import cache
 from glob import glob
 from itertools import chain
 from pathlib import Path
-from subprocess import check_output
+from subprocess import DEVNULL, CalledProcessError, check_output
 from typing import Callable, Iterable, List, Optional, Tuple
 from urllib.error import URLError
 from urllib.parse import urlparse
@@ -121,24 +121,44 @@ class Article:
 
     @property
     def authors(self):
-        return set(
-            chain.from_iterable(
-                (author.strip().split("\t")[1] for author in str(check_output(["git", "shortlog", "-n", "-s", "--", path]), "utf-8").splitlines())
-                for path in [self.source, *self.loaded_paths]
+        try:
+            return set(
+                chain.from_iterable(
+                    (
+                        author.strip().split("\t")[1]
+                        for author in str(check_output(["git", "shortlog", "-n", "-s", "--", path], stderr=DEVNULL), "utf-8").splitlines()
+                    )
+                    for path in [self.source, *self.loaded_paths]
+                )
             )
-        )
+
+        except CalledProcessError:
+            return set()
 
     @property
     def hash(self):
-        hashes = [check_output(["git", "hash-object", path]) for path in [self.source, *self.loaded_paths]]
-        if not self.loaded_paths:
+        try:
+            hashes = [check_output(["git", "hash-object", path]) for path in [self.source, *self.loaded_paths]]
+
+        except CalledProcessError:
+            return [hashlib.sha1(path.read_bytes()).hexdigest() for path in [self.source, *self.loaded_paths]]
+
+        if len(hashes) == 1:
             return str(hashes[0], "utf-8")
 
         return hashlib.sha1(b"".join(hashes)).hexdigest()
 
     @property
     def modified_date(self):
-        dates = [str(check_output(["git", "log", "-1", "--pretty=%cs", path]), "utf-8").strip() for path in [self.source, *self.loaded_paths]]
+        try:
+            dates = [
+                str(check_output(["git", "log", "-1", "--pretty=%cs", path], stderr=DEVNULL), "utf-8").strip()
+                for path in [self.source, *self.loaded_paths]
+            ]
+
+        except CalledProcessError:
+            dates = [datetime.fromtimestamp(os.path.getmtime(path)).date().isoformat() for path in [self.source, *self.loaded_paths]]
+
         return sorted(dates, reverse=True)[0]
 
 
@@ -161,7 +181,13 @@ class Document:
         if commit_sha_env := os.getenv("CI_COMMIT_SHORT_SHA", None):
             return commit_sha_env
 
-        return str(check_output(["git", "rev-parse", "HEAD"]), "utf-8")[:8] + ("-dirty" if check_output(["git", "status", "-s"]) else "")
+        try:
+            return str(check_output(["git", "rev-parse", "HEAD"], stderr=DEVNULL), "utf-8")[:8] + (
+                "-dirty" if check_output(["git", "status", "-s"]) else ""
+            )
+
+        except CalledProcessError:
+            return
 
     def write_pdf(self, output_dir: Path, output_html: bool = False):
         html = self.template.render(

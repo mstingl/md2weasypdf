@@ -1,0 +1,91 @@
+@page {
+  size: a4 portrait;
+  margin: 4cm 1.5cm;
+  counter-increment: page;
+}
+
+@page {
+  @top-left {
+    content: element(header);
+    width: 100%;
+  }
+}
+
+@page {
+  @bottom-left {
+    content: element(footer);
+    width: 100%;
+  }
+}
+
+html,
+body {
+  font-family: sans-serif;
+}
+
+header,
+footer {
+  height: 12mm;
+  padding: 1cm 0;
+  overflow: hidden;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: transparent;
+  color: black;
+}
+
+header {
+  position: running(header);
+  transform: translateY(-5mm);
+}
+
+footer {
+  position: running(footer);
+  transform: translateY(5mm);
+}
+
+#currentPage {
+  content: counter(page);
+  font-weight: bold;
+}
+#totalPages {
+  content: counter(pages);
+}
+
+.toc > ol {
+  list-style: none;
+  padding: 0;
+}
+.toc > ol > li {
+  --level: 0em;
+  padding: 0.6ex 0 0 var(--level);
+}
+.toc > ol > li > a {
+  overflow: hidden;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  font-weight: bold;
+}
+.toc > ol > li > a > .toctitle {
+  flex: 0 1 auto;
+  display: block;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+.toc > ol > li > a > .toctitle:empty:before {
+  content: target-text(attr(href));
+}
+.toc > ol > li > a > .tocspacer {
+  flex: 1 0 auto;
+  min-width: 2em;
+  border-bottom: 0.125em dotted #d9d9d6;
+  margin: 1.3ex 1.5em 0;
+}
+.toc > ol > li > a > .tocpage {
+  flex: 0 0 content;
+}
+.toc > ol > li > a > .tocpage::before {
+  content: target-counter(attr(href), page);
+}

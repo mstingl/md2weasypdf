@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="./base.css" />
+    <title>{{ title }}</title>
+  </head>
+
+  <body>
+    <header>
+      {% block header %}
+      <div id="title">{{ title }}</div>
+      {% endblock %}
+    </header>
+    <footer>
+      {% block footer %}
+      <div id="pageCounter">
+        <span id="currentPage"></span> / <span id="totalPages"></span>
+      </div>
+      {% endblock %}
+    </footer>
+    <main>
+      {% block main %}
+      {% if articles|length > 1 %}
+      <article class="toc" id="toc">
+        <h1 id="toc-title">{{ title }}</h1>
+        <ol>
+          {% for doc in articles %}
+          <li>
+            <a href="#{{ doc.source }}">
+              <span class="toctitle" href="#{{ doc.source }}-title"></span>
+              <div class="tocspacer"></div>
+              <span class="tocpage" href="#{{ doc.source }}"></span>
+            </a>
+          </li>
+          {% endfor %}
+        </ol>
+      </article>
+      {% endif %}
+      {% for doc in articles %}
+      <article
+        id="{{ doc.source }}"
+        hash="{{doc.hash[:8]}}"
+        modified="{{ doc.modified_date }}"
+      >
+        {% if not doc.has_custom_headline %}
+        <h1 id="{{ doc.source }}-title">
+          {{ doc.title }}
+        </h1>
+        {% else %}
+        <title id="{{ doc.source }}-title">
+          {{ doc.title }}
+        </title>
+        {% endif %}
+        {{ doc.content | safe }}
+      </article>
+      {% endfor %}
+      {% endblock %}
+    </main>
+  </body>
+</html>
