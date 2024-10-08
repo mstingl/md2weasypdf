@@ -29,6 +29,7 @@ class TableCaptionProcessor(Treeprocessor):
             if table not in self.tables:
                 self.tables.append(table)
 
-            caption = etree.Element("caption")
-            caption.text = "Table %i" % (self.tables.index(table) + 1)
+            index = self.tables.index(table) + 1
+            caption = etree.Element("caption", attrib={"table-index": str(index)})
+            caption.text = "Table %i" % index
             table.append(caption)
