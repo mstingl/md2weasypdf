@@ -1,4 +1,5 @@
 import hashlib
+import json
 import os
 import re
 import warnings
@@ -17,6 +18,8 @@ import frontmatter
 import lxml.html
 import yaml
 from jinja2 import Environment, FileSystemLoader, Template, select_autoescape
+from jsonschema import ValidationError
+from jsonschema import validate as validate_json_with_schema
 from markdown import Markdown
 from weasyprint import HTML, default_url_fetcher
 
@@ -77,8 +80,13 @@ class Article:
         while depth < max_depth:
             depth += 1
             if (template_path := directory / "_template.md").exists() or (template_path := directory / "_template.md.j2").exists():
+                schema = None
+                if (schema_path := directory / "schema.json").exists():
+                    with open(schema_path, mode="r", encoding="utf-8") as file:
+                        schema = json.load(file)
+
                 with open(template_path, mode="r", encoding="utf-8") as file:
-                    return frontmatter.load(file)
+                    return frontmatter.load(file), schema
 
             directory = directory.parent
 
@@ -88,7 +96,14 @@ class Article:
         with open(self.source, mode="r", encoding="utf-8") as file:
             article = yaml.load(file, Loader=yaml.Loader)
 
-        md_template = self._yaml_md_template(self.source.parent)
+        md_template, schema = self._yaml_md_template(self.source.parent)
+        if schema:
+            try:
+                validate_json_with_schema(article, schema)
+
+            except ValidationError as error:
+                raise ValueError(f"Error validating schema of {self.source}: {error}") from error
+
         article_template = self._get_template_env().from_string(md_template.content)
 
         self.meta = {**md_template.metadata, **getattr(article, "metadata", {})}

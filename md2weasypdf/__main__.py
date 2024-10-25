@@ -10,6 +10,7 @@ from threading import Timer
 from typing import Callable, List, Optional
 
 import typer
+from jsonschema import ValidationError
 from rich.console import Console
 from typing_extensions import Annotated
 from watchdog.events import FileSystemEvent, FileSystemEventHandler
@@ -188,7 +189,7 @@ def main(
             raise
 
         except ValueError as error:
-            console.log("Error:", error, style="bold red")
+            console.log("[red][b]Error[/b][/red] ", error)
             raise
 
         except Exception:
