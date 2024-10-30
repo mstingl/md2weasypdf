@@ -140,8 +140,10 @@ class Article:
             return set(
                 chain.from_iterable(
                     (
-                        author.strip().split("\t")[1]
-                        for author in str(check_output(["git", "shortlog", "-n", "-s", "--", path], stderr=DEVNULL), "utf-8").splitlines()
+                        author.strip().split("\t")[1][:-1].rsplit(' <', 1)
+                        for author in str(
+                            check_output(["git", "shortlog", "-s", "-n", "-e" "HEAD", "--", path], stderr=DEVNULL), "utf-8"
+                        ).splitlines()
                     )
                     for path in [self.source, *self.loaded_paths]
                 )
