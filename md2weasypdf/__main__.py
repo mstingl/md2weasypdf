@@ -98,6 +98,7 @@ def main(
     ] = None,
     watch: Annotated[bool, typer.Option(help="Watch input directory for changes and re-run the conversion")] = False,
     only_modified_in_commit: Annotated[Optional[str], typer.Option(help="Only print documents which have been changed in the given commit")] = None,
+    keep_tree: Annotated[bool, typer.Option(help="Preserve tree of input files for output files")] = False,
 ):
     if (
         layouts_dir
@@ -154,6 +155,7 @@ def main(
             output_md=output_md,
             filename_filter=filename_filter,
             meta=json.loads(meta) if meta else None,
+            keep_tree=keep_tree,
         )
 
     except ValueError as error:

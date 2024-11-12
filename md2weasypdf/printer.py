@@ -217,6 +217,8 @@ class Document:
             document=self,
         )
 
+        os.makedirs(output_dir, exist_ok=True)
+
         if output_html:
             with open(output_dir / f"{self.filename}.html", "w", encoding="utf-8") as html_file:
                 html_file.write(html)
@@ -302,6 +304,7 @@ class Printer:
         output_md: bool = False,
         filename_filter: Optional[str] = None,
         meta: Optional[dict[str, object]] = None,
+        keep_tree: bool = False,
     ):
         self.input = self._ensure_path(input)
         self.output_dir = self._ensure_path(output_dir, dir=True, create=True)
@@ -314,6 +317,7 @@ class Printer:
         self.output_md = output_md
         self.filename_filter = re.compile(filename_filter) if filename_filter else None
         self.meta = meta or {}
+        self.keep_tree = keep_tree
         self.jinja_env = Environment(
             autoescape=select_autoescape(),
             loader=FileSystemLoader(searchpath=[self.layouts_dir]),
@@ -399,7 +403,14 @@ class Printer:
                 except ValueError as error:
                     raise ValueError(f"Could not create document for {article.source}: {error}") from error
 
-                yield doc, doc.write_pdf(**write_options)
+                yield doc, doc.write_pdf(
+                    **{
+                        **write_options,
+                        "output_dir": (
+                            write_options["output_dir"] / (doc.articles[0].source.parent.relative_to(self.input) if self.keep_tree else ".")
+                        ),
+                    }
+                )
 
     def _get_layout_dir(self, layout: str):
         if not layout:
