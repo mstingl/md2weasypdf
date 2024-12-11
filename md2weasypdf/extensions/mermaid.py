@@ -1,4 +1,5 @@
 import base64
+import json
 import os
 from functools import cache
 from subprocess import CalledProcessError, check_call
@@ -26,13 +27,19 @@ class MermaidPreprocessor(FencedBlockPreprocessor):
             return self.__generated_file_contents_cache[code]
 
         with TemporaryDirectory() as tempdir:
+            puppeteer_config_path = os.path.join(tempdir, "puppeteer-config.json")
+            with open(puppeteer_config_path, 'w') as config_file:
+                config_file.write(json.dumps({
+                    "args": ["--no-sandbox"],
+                }))
+
             input_path = os.path.join(tempdir, "in.svg")
             with open(input_path, 'w') as input_file:
                 input_file.write(code)
 
             output_path = os.path.join(tempdir, "out.png")
             try:
-                check_call(["mmdc", "-w", "2500", "-s", "2", "--input", input_path, "--output", output_path], shell=True)
+                check_call(["mmdc", "-w", "2500", "-s", "2", "--input", input_path, "--output", output_path, "-p", puppeteer_config_path], shell=True)
 
             except CalledProcessError as error:
                 raise ValueError("Cannot run mmdc to convert mermaid to image") from error
