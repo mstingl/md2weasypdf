@@ -1,7 +1,7 @@
 import base64
 import json
 import os
-from functools import cache
+from io import StringIO
 from subprocess import CalledProcessError, check_call
 from tempfile import TemporaryDirectory
 
@@ -62,7 +62,6 @@ class MermaidPreprocessor(FencedBlockPreprocessor):
                         "-p",
                         puppeteer_config_path,
                     ],
-                    shell=True,
                 )
 
             except CalledProcessError as error:

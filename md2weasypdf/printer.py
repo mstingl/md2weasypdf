@@ -41,10 +41,10 @@ class FileSystemWithFrontmatterLoader(FileSystemLoader):
 class Article:
     source: Path
     template_loader_searchpaths: list[str | Path] = field(default_factory=list)
+    meta: dict[str, object] = field(default_factory=dict)
 
     def __post_init__(self):
         self.loaded_paths: set[Path] = set()
-        self.meta: dict[str, object] = {}
 
         if self.source.suffix == ".md":
             self._init_md()
@@ -70,7 +70,7 @@ class Article:
 
         article_template = self._get_template_env().from_string(article.content)
 
-        self.meta = article.metadata
+        self.meta |= article.metadata
         self.content_md = article_template.render()
 
     @staticmethod
@@ -335,7 +335,7 @@ class Printer:
                 raise ValueError("A title cannot be specified when not using bundle.")
 
     def _load_article(self, source: Path):
-        return Article(source=source, template_loader_searchpaths=[self.input])
+        return Article(source=source, template_loader_searchpaths=[self.input], meta=self.meta)
 
     def get_documents(self):
         return [
