@@ -33,13 +33,13 @@ class MermaidPreprocessor(FencedBlockPreprocessor):
                     "args": ["--no-sandbox"],
                 }))
 
-            input_path = os.path.join(tempdir, "in.svg")
+            input_path = os.path.join(tempdir, "in.mmd")
             with open(input_path, 'w') as input_file:
                 input_file.write(code)
 
             output_path = os.path.join(tempdir, "out.png")
             try:
-                check_call(["mmdc", "-w", "2500", "-s", "2", "--input", input_path, "--output", output_path, "-p", puppeteer_config_path], shell=True)
+                check_call(["mmdc", "-w", "2500", "-s", "2", "-i", input_path, "-o", output_path, "-b", "transparent", "-p", puppeteer_config_path], shell=True)
 
             except CalledProcessError as error:
                 raise ValueError("Cannot run mmdc to convert mermaid to image") from error
