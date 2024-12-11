@@ -1,5 +1,6 @@
 import json
 import os
+import shutil
 import time
 import warnings
 from functools import partial
@@ -10,7 +11,6 @@ from threading import Timer
 from typing import Callable, List, Optional
 
 import typer
-from jsonschema import ValidationError
 from rich.console import Console
 from typing_extensions import Annotated
 from watchdog.events import FileSystemEvent, FileSystemEventHandler
@@ -114,7 +114,7 @@ def main(
                     check_call(["git", "clone", layouts_dir, layouts_dir_path], stdout=DEVNULL)
 
                 except CalledProcessError:
-                    layouts_dir_path.unlink(missing_ok=True)
+                    shutil.rmtree(layouts_dir_path, ignore_errors=True)
                     raise
 
             else:
@@ -142,6 +142,10 @@ def main(
             console.print("Layouts dir does not exists", style="bold red")
             raise typer.Exit(11)
 
+    combined_meta = json.loads(meta) if meta else {}
+    if env_meta := os.getenv('MD2WEASYPDF_META'):
+        combined_meta = json.loads(env_meta) | combined_meta
+
     try:
         printer = Printer(
             input=input,
@@ -154,7 +158,7 @@ def main(
             output_html=output_html,
             output_md=output_md,
             filename_filter=filename_filter,
-            meta=json.loads(meta) if meta else None,
+            meta=combined_meta,
             keep_tree=keep_tree,
         )
 
