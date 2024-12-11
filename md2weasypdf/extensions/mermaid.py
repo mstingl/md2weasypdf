@@ -29,9 +29,16 @@ class MermaidPreprocessor(FencedBlockPreprocessor):
         with TemporaryDirectory() as tempdir:
             puppeteer_config_path = os.path.join(tempdir, "puppeteer-config.json")
             with open(puppeteer_config_path, 'w') as config_file:
-                config_file.write(json.dumps({
-                    "args": ["--no-sandbox"],
-                }))
+                config_file.write(
+                    json.dumps(
+                        {
+                            "args": [
+                                "--no-sandbox",
+                                "--disable-gpu",
+                            ],
+                        }
+                    )
+                )
 
             input_path = os.path.join(tempdir, "in.mmd")
             with open(input_path, 'w') as input_file:
@@ -39,7 +46,24 @@ class MermaidPreprocessor(FencedBlockPreprocessor):
 
             output_path = os.path.join(tempdir, "out.png")
             try:
-                check_call(["mmdc", "-w", "2500", "-s", "2", "-i", input_path, "-o", output_path, "-b", "transparent", "-p", puppeteer_config_path], shell=True)
+                check_call(
+                    [
+                        "mmdc",
+                        "-w",
+                        "2500",
+                        "-s",
+                        "2",
+                        "-i",
+                        input_path,
+                        "-o",
+                        output_path,
+                        "-b",
+                        "transparent",
+                        "-p",
+                        puppeteer_config_path,
+                    ],
+                    shell=True,
+                )
 
             except CalledProcessError as error:
                 raise ValueError("Cannot run mmdc to convert mermaid to image") from error
