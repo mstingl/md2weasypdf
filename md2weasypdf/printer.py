@@ -3,6 +3,7 @@ import json
 import os
 import re
 import warnings
+from copy import deepcopy
 from dataclasses import dataclass, field
 from datetime import date, datetime
 from functools import cache
@@ -106,7 +107,7 @@ class Article:
 
         article_template = self._get_template_env().from_string(md_template.content)
 
-        self.meta = {**md_template.metadata, **getattr(article, "metadata", {})}
+        self.meta |= md_template.metadata | getattr(article, "metadata", {})
         self.content_md = article_template.render(article)
 
     @property
@@ -335,7 +336,7 @@ class Printer:
                 raise ValueError("A title cannot be specified when not using bundle.")
 
     def _load_article(self, source: Path):
-        return Article(source=source, template_loader_searchpaths=[self.input], meta=self.meta)
+        return Article(source=source, template_loader_searchpaths=[self.input], meta=deepcopy(self.meta))
 
     def get_documents(self):
         return [
