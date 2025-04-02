@@ -89,3 +89,8 @@ footer {
 .toc > ol > li > a > .tocpage::before {
   content: target-counter(attr(href), page);
 }
+
+img {
+  max-width: 100%;
+  max-height: 100%;
+}

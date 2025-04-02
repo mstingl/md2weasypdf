@@ -62,6 +62,7 @@ class MermaidPreprocessor(FencedBlockPreprocessor):
                         "-p",
                         puppeteer_config_path,
                     ],
+                    shell=True,
                 )
 
             except CalledProcessError as error:
