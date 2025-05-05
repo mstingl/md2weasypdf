@@ -2,15 +2,17 @@ import hashlib
 import json
 import os
 import re
+import shutil
 import warnings
 from copy import deepcopy
 from dataclasses import dataclass, field
 from datetime import date, datetime
 from functools import cache
 from glob import glob
+from hashlib import sha1
 from itertools import chain
 from pathlib import Path
-from subprocess import DEVNULL, CalledProcessError, check_output
+from subprocess import DEVNULL, CalledProcessError, check_call, check_output
 from typing import Callable, Iterable, List, Optional, Tuple
 from urllib.error import URLError
 from urllib.parse import urlparse
@@ -43,6 +45,7 @@ class Article:
     source: Path
     template_loader_searchpaths: list[str | Path] = field(default_factory=list)
     meta: dict[str, object] = field(default_factory=dict)
+    variables: dict[str, object] = field(default_factory=dict)
 
     def __post_init__(self):
         self.loaded_paths: set[Path] = set()
@@ -72,7 +75,7 @@ class Article:
         article_template = self._get_template_env().from_string(article.content)
 
         self.meta |= article.metadata
-        self.content_md = article_template.render()
+        self.content_md = article_template.render(self.variables)
 
     @staticmethod
     @cache
@@ -182,13 +185,47 @@ class Article:
 
 @dataclass
 class Document:
-    title: str
-    alt_title: str
-    filename: str
-    template: Template
-    layout_dir: Path
+    layouts_dir: Path
+    layout: str
     articles: List[Article]
-    meta: dict[str, object]
+    title: str = ""
+    alt_title: str = ""
+    filename: str | None = None
+    meta: dict[str, object] = field(default_factory=dict)
+
+    @staticmethod
+    def _get_layout_dir(layouts_dir: Path, layout: str):
+        if not layout:
+            raise ValueError("No layout defined")
+
+        if os.path.isdir(layout_dir := layouts_dir / layout):
+            return layout_dir
+
+        raise ValueError("Layout \"{layout}\" could not be found")
+
+    @staticmethod
+    def try_files(path: Path, filenames: List[str]):
+        for filename in filenames:
+            if (filepath := path / filename).exists():
+                return filepath
+
+        raise FileNotFoundError
+
+    @property
+    def _jinja_env(self):
+        return Environment(
+            autoescape=select_autoescape(),
+            loader=FileSystemLoader(searchpath=[self.layouts_dir]),
+        )
+
+    @property
+    def layout_dir(self):
+        return self._get_layout_dir(self.layouts_dir, self.articles[0].meta.get('layout', self.layout) if len(self.articles) == 1 else self.layout)
+
+    @property
+    def template(self):
+        with self.try_files(self.layout_dir, ["index.html.j2", "index.html"]).open(mode="r", encoding="utf-8") as file:
+            return self._jinja_env.from_string(file.read())
 
     @property
     def authors(self):
@@ -207,8 +244,9 @@ class Document:
         except CalledProcessError:
             return
 
-    def write_pdf(self, output_dir: Path, output_html: bool = False):
-        html = self.template.render(
+    @property
+    def html(self):
+        return self.template.render(
             date=date.today().isoformat(),
             commit=self.get_commit(),
             articles=self.articles,
@@ -218,21 +256,27 @@ class Document:
             document=self,
         )
 
-        os.makedirs(output_dir, exist_ok=True)
-
-        if output_html:
-            with open(output_dir / f"{self.filename}.html", "w", encoding="utf-8") as html_file:
-                html_file.write(html)
-
-        pdf_output_target = output_dir / f"{self.filename}.pdf"
-        HTML(
-            string=html,
+    def render_pdf(self, pdf_output_target=None):
+        return HTML(
+            string=self.html,
             base_url=str(self.layout_dir),
             url_fetcher=self.url_fetcher,
         ).write_pdf(
             target=pdf_output_target,
             pdf_forms=True,
         )
+
+    def write_pdf(self, output_dir: Path, output_html: bool = False):
+        assert self.filename, "Filename is required to write a pdf"
+
+        os.makedirs(output_dir, exist_ok=True)
+
+        if output_html:
+            with open(output_dir / f"{self.filename}.html", "w", encoding="utf-8") as html_file:
+                html_file.write(self.html)
+
+        pdf_output_target = output_dir / f"{self.filename}.pdf"
+        self.render_pdf(pdf_output_target)
         return pdf_output_target
 
     def url_fetcher(self, url: str, timeout=10, ssl_context=None):
@@ -256,6 +300,60 @@ class Document:
 
 
 class Printer:
+    @classmethod
+    def fetch_repo(cls, url):
+        layouts_dir_path = Path(f"~/.cache/md2weasypdf/{sha1(url.encode('utf-8')).hexdigest()}").expanduser()
+        layouts_dir_path.mkdir(parents=True, exist_ok=True)
+        try:
+            if not (layouts_dir_path / ".git").exists():
+                try:
+                    check_call(["git", "clone", url, layouts_dir_path], stdout=DEVNULL)
+
+                except CalledProcessError:
+                    shutil.rmtree(layouts_dir_path, ignore_errors=True)
+                    raise
+
+            else:
+                check_call(["git", "-C", layouts_dir_path, "pull"], stdout=DEVNULL)
+
+        except CalledProcessError as error:
+            raise
+
+        return layouts_dir_path
+
+    @classmethod
+    def resolve_layout(cls, layouts_dir: Path | str, layout):
+        if isinstance(layouts_dir, Path):
+            layouts_dir = str(layouts_dir)
+
+        if (
+            layouts_dir
+            and layouts_dir.endswith(".git")
+            and (layouts_dir.startswith("https://") or layouts_dir.startswith("ssh://") or layouts_dir.startswith("git@"))
+        ):
+            try:
+                path = Printer.fetch_repo(layouts_dir)
+
+            except CalledProcessError as error:
+                raise ValueError(f"Error while fetching layouts repository: {error}")
+
+        else:
+            if not layouts_dir:
+                path = Path(os.path.join(os.getcwd(), "layouts"))
+
+                if not path.exists():
+                    path = Path(__file__).parent / "layouts"
+                    if not layout:
+                        layout = "basic"
+
+            else:
+                path = Path(layouts_dir)
+
+            if not path.exists():
+                raise ValueError("Layouts dir does not exists")
+
+        return path, layout
+
     @staticmethod
     def _ensure_path(path: Path, dir: Optional[bool] = None, create: Optional[bool] = None):
         if not path.is_absolute():
@@ -319,10 +417,6 @@ class Printer:
         self.filename_filter = re.compile(filename_filter) if filename_filter else None
         self.meta = meta or {}
         self.keep_tree = keep_tree
-        self.jinja_env = Environment(
-            autoescape=select_autoescape(),
-            loader=FileSystemLoader(searchpath=[self.layouts_dir]),
-        )
 
         if self.bundle:
             if not self.layout or not self.title:
@@ -364,7 +458,6 @@ class Printer:
             yield self._load_article(article_path)
 
     def execute(self, documents: Optional[List[Path]] = None):
-        self._load_template.cache_clear()
         articles = list(self.get_articles(documents))
 
         if self.output_md:
@@ -380,10 +473,11 @@ class Printer:
 
         if self.bundle:
             doc = Document(
-                self.title,  # type: ignore  # title cannot be empty when bundle is set
-                self.alt_title or self.title,  # type: ignore  # title cannot be empty when bundle is set
-                self.title.replace(" ", "_"),
-                *self._load_template(self.layout),
+                title=self.title,  # type: ignore  # title cannot be empty when bundle is set
+                alt_title=self.alt_title or self.title,  # type: ignore  # title cannot be empty when bundle is set
+                filename=self.title.replace(" ", "_"),
+                layouts_dir=self.layouts_dir,
+                layout=self.layout,
                 articles=articles,
                 meta=self.meta,
             )
@@ -393,10 +487,11 @@ class Printer:
             for article in articles:
                 try:
                     doc = Document(
-                        article.title,
-                        article.alt_title,
-                        article.filename,
-                        *self._load_template(article.meta.get('layout', self.layout)),
+                        title=article.title,
+                        alt_title=article.alt_title,
+                        filename=article.filename,
+                        layouts_dir=self.layouts_dir,
+                        layout=self.layout,
                         articles=[article],
                         meta=self.meta | article.meta,
                     )
@@ -412,28 +507,3 @@ class Printer:
                         ),
                     }
                 )
-
-    def _get_layout_dir(self, layout: str):
-        if not layout:
-            raise ValueError("No layout defined")
-
-        if os.path.isdir(layout_dir := self.layouts_dir / layout):
-            return layout_dir
-
-        raise ValueError("Layout \"{layout}\" could not be found")
-
-    @staticmethod
-    def try_files(path: Path, filenames: List[str]):
-        for filename in filenames:
-            if (filepath := path / filename).exists():
-                return filepath
-
-        raise FileNotFoundError
-
-    @cache
-    def _load_template(self, layout):
-        layout_dir = self._get_layout_dir(layout)
-        with self.try_files(layout_dir, ["index.html.j2", "index.html"]).open(mode="r", encoding="utf-8") as file:
-            template = self.jinja_env.from_string(file.read())
-
-        return template, layout_dir

@@ -1,12 +1,10 @@
 import json
 import os
-import shutil
 import time
 import warnings
 from functools import partial
-from hashlib import sha1
 from pathlib import Path
-from subprocess import DEVNULL, CalledProcessError, check_call, check_output
+from subprocess import CalledProcessError, check_output
 from threading import Timer
 from typing import Callable, List, Optional
 
@@ -100,47 +98,13 @@ def main(
     only_modified_in_commit: Annotated[Optional[str], typer.Option(help="Only print documents which have been changed in the given commit")] = None,
     keep_tree: Annotated[bool, typer.Option(help="Preserve tree of input files for output files")] = False,
 ):
-    if (
-        layouts_dir
-        and layouts_dir.endswith(".git")
-        and (layouts_dir.startswith("https://") or layouts_dir.startswith("ssh://") or layouts_dir.startswith("git@"))
-    ):
-        layouts_dir_path = Path(f"~/.cache/md2weasypdf/{sha1(layouts_dir.encode('utf-8')).hexdigest()}").expanduser()
-        layouts_dir_path.mkdir(parents=True, exist_ok=True)
-        try:
-            if not (layouts_dir_path / ".git").exists():
-                console.print("Pulling layouts repository", style="cyan")
-                try:
-                    check_call(["git", "clone", layouts_dir, layouts_dir_path], stdout=DEVNULL)
+    console.print("Loading template...", style="cyan")
+    try:
+        layouts_dir_path, layout = Printer.resolve_layout(layouts_dir, layout)
 
-                except CalledProcessError:
-                    shutil.rmtree(layouts_dir_path, ignore_errors=True)
-                    raise
-
-            else:
-                console.print("Updating layouts repository", style="cyan")
-                check_call(["git", "-C", layouts_dir_path, "pull"], stdout=DEVNULL)
-
-        except CalledProcessError as error:
-            console.print(f"Error while fetching layouts repository: {error}", style="bold red")
-            raise typer.Exit(9) from error
-
-    else:
-        if not layouts_dir:
-            layouts_dir_path = Path(os.path.join(os.getcwd(), "layouts"))
-
-            if not layouts_dir_path.exists():
-                layouts_dir_path = Path(__file__).parent / "layouts"
-                print(layouts_dir_path)
-                if not layout:
-                    layout = "basic"
-
-        else:
-            layouts_dir_path = Path(layouts_dir)
-
-        if not layouts_dir_path.exists():
-            console.print("Layouts dir does not exists", style="bold red")
-            raise typer.Exit(11)
+    except ValueError as error:
+        console.print(error.args[0], style="bold red")
+        raise typer.Exit(9) from error
 
     combined_meta = json.loads(meta) if meta else {}
     if env_meta := os.getenv('MD2WEASYPDF_META'):
