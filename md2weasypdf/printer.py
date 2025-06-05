@@ -49,12 +49,16 @@ class Article:
 
     def __post_init__(self):
         self.loaded_paths: set[Path] = set()
+        self._content = None
 
         if self.source.suffix == ".md":
             self._init_md()
 
         elif self.source.suffix == ".yaml":
             self._init_yaml()
+
+        elif self.source.suffix == ".html":
+            self._init_html()
 
         else:
             raise NotImplementedError(f"No handling for {self.source.suffix} files implemented")
@@ -68,13 +72,23 @@ class Article:
             ),
         )
 
-    def _init_md(self):
+    def _open_frontmatter(self):
         with open(self.source, mode="r", encoding="utf-8") as file:
             article = frontmatter.load(file)
 
-        article_template = self._get_template_env().from_string(article.content)
-
         self.meta |= article.metadata
+        return article.content
+
+    def _init_html(self):
+        content = self._open_frontmatter()
+        article_template = self._get_template_env().from_string(content)
+
+        self.content = article_template.render(self.variables)
+
+    def _init_md(self):
+        content = self._open_frontmatter()
+        article_template = self._get_template_env().from_string(content)
+
         self.content_md = article_template.render(self.variables)
 
     @staticmethod
@@ -123,9 +137,16 @@ class Article:
 
     @property
     def content(self) -> str:
-        md = Markdown(extensions=[e for e in Printer.enabled_extensions(self) if e], tab_length=int(str(self.meta.get("tab_length", 2))))
+        if self._content:
+            return self._content
 
-        return md.convert(self.content_md)
+        md = Markdown(extensions=[e for e in Printer.enabled_extensions(self) if e], tab_length=int(str(self.meta.get("tab_length", 2))))
+        self._content = md.convert(self.content_md)
+        return self._content
+
+    @content.setter
+    def content(self, value):
+        self._content = value
 
     @property
     def has_custom_headline(self) -> bool:
