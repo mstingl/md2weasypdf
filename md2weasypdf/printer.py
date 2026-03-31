@@ -174,7 +174,7 @@ class Article:
                 )
             )
 
-        except CalledProcessError:
+        except (CalledProcessError, FileNotFoundError):
             return set()
 
     @property
@@ -182,7 +182,7 @@ class Article:
         try:
             hashes = [check_output(["git", "hash-object", path]) for path in [self.source, *self.loaded_paths]]
 
-        except CalledProcessError:
+        except (CalledProcessError, FileNotFoundError):
             return [hashlib.sha1(path.read_bytes()).hexdigest() for path in [self.source, *self.loaded_paths]]
 
         if len(hashes) == 1:
@@ -198,7 +198,7 @@ class Article:
                 for path in [self.source, *self.loaded_paths]
             ]
 
-        except CalledProcessError:
+        except (CalledProcessError, FileNotFoundError):
             dates = [datetime.fromtimestamp(os.path.getmtime(path)).date().isoformat() for path in [self.source, *self.loaded_paths]]
 
         return sorted(dates, reverse=True)[0]
@@ -262,7 +262,7 @@ class Document:
                 "-dirty" if check_output(["git", "status", "-s"]) else ""
             )
 
-        except CalledProcessError:
+        except (CalledProcessError, FileNotFoundError):
             return
 
     @property
@@ -334,10 +334,14 @@ class Printer:
                     shutil.rmtree(layouts_dir_path, ignore_errors=True)
                     raise
 
+                except FileNotFoundError:
+                    warnings.warn("Git not installed on system (or not available in PATH)")
+                    raise
+
             else:
                 check_call(["git", "-C", layouts_dir_path, "pull"], stdout=DEVNULL)
 
-        except CalledProcessError as error:
+        except (CalledProcessError, FileNotFoundError) as error:
             raise
 
         return layouts_dir_path
@@ -355,7 +359,7 @@ class Printer:
             try:
                 path = Printer.fetch_repo(layouts_dir)
 
-            except CalledProcessError as error:
+            except (CalledProcessError, FileNotFoundError) as error:
                 raise ValueError(f"Error while fetching layouts repository: {error}")
 
         else:
