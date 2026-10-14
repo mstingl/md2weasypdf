@@ -7,13 +7,13 @@ import warnings
 from copy import deepcopy
 from dataclasses import dataclass, field
 from datetime import date, datetime
-from functools import cache
+from functools import cache, cached_property
 from glob import glob
 from hashlib import sha1
 from itertools import chain
 from pathlib import Path
-from subprocess import DEVNULL, CalledProcessError, check_call, check_output
-from typing import Callable, Iterable, List, Optional, Tuple
+from subprocess import DEVNULL, STDOUT, CalledProcessError, check_call, check_output
+from typing import Callable, Iterable, List, NamedTuple, Optional, Tuple
 from urllib.error import URLError
 from urllib.parse import urlparse
 
@@ -38,6 +38,18 @@ class FileSystemWithFrontmatterLoader(FileSystemLoader):
         contents, path, uptodate = super().get_source(environment, template)
         self.loaded_paths.add(Path(path))
         return frontmatter.loads(contents).content, path, uptodate
+
+
+class Author(NamedTuple):
+    name: str
+    email: str
+
+
+class Signature(NamedTuple):
+    signer: Author
+    date: str
+    signature: str
+    message: str | None
 
 
 @dataclass
@@ -162,20 +174,65 @@ class Article:
     @property
     def authors(self):
         try:
-            return set(
-                chain.from_iterable(
-                    (
-                        author.strip().split("\t")[1][:-1].rsplit(' <', 1)
-                        for author in str(
-                            check_output(["git", "shortlog", "-s", "-n", "-e" "HEAD", "--", path], stderr=DEVNULL), "utf-8"
-                        ).splitlines()
-                    )
-                    for path in [self.source, *self.loaded_paths]
+            authors_by_file = [
+                (
+                    Author(*author.strip().split("\t")[1][:-1].rsplit(' <', 1))
+                    for author in str(check_output(["git", "shortlog", "-s", "-n", "-e", "HEAD", "--", path], stderr=DEVNULL), "utf-8").splitlines()
                 )
-            )
+                for path in [self.source, *self.loaded_paths]
+            ]
+            return set(chain.from_iterable(authors_by_file))
 
         except (CalledProcessError, FileNotFoundError):
             return set()
+
+    @cached_property
+    def change_commit(self):
+        try:
+            return str(check_output(["git", "log", "-1", "--follow", "--pretty=format:%H", "--", self.source], stderr=DEVNULL), "utf-8") or None
+
+        except (CalledProcessError, FileNotFoundError):
+            return None
+
+    @cached_property
+    def tags(self):
+        if not self.change_commit:
+            return []
+
+        try:
+            return sorted(set(str(check_output(["git", "tag", "--points-at", self.change_commit], stderr=DEVNULL), "utf-8").splitlines()))
+
+        except (CalledProcessError, FileNotFoundError):
+            return []
+
+    @staticmethod
+    def get_tag_signature(tag: str):
+        """Returns the signature of an annotated tag, or None if it is unsigned or fails verification."""
+        try:
+            verification = str(check_output(["git", "verify-tag", tag], stderr=STDOUT), "utf-8").strip()
+            tag_info = str(
+                check_output(
+                    [
+                        "git",
+                        "for-each-ref",
+                        "--format=%(taggername)%00%(taggeremail)%00%(taggerdate:iso-strict)%00%(contents:subject)%00%(contents:body)",
+                        f"refs/tags/{tag}",
+                    ],
+                    stderr=DEVNULL,
+                ),
+                "utf-8",
+            )
+
+        except (CalledProcessError, FileNotFoundError):
+            return None
+
+        name, email, tag_date, subject, body = tag_info.rstrip("\n").split("\0")
+        message = "\n\n".join(part for part in (subject.strip(), body.strip()) if part) or None
+        return Signature(Author(name, email.strip("<>")), tag_date, verification, message)
+
+    @cached_property
+    def tags_signatures(self):
+        return [signature for tag in self.tags if (signature := self.get_tag_signature(tag))]
 
     @property
     def hash(self):
@@ -232,12 +289,14 @@ class Document:
 
         raise FileNotFoundError
 
-    @property
+    @cached_property
     def _jinja_env(self):
-        return Environment(
+        env = Environment(
             autoescape=select_autoescape(),
             loader=FileSystemLoader(searchpath=[self.layouts_dir]),
         )
+        env.globals.update(zip=zip)
+        return env
 
     @property
     def layout_dir(self):
@@ -251,6 +310,26 @@ class Document:
     @property
     def authors(self):
         return set(chain.from_iterable(article.authors for article in self.articles))
+
+    @property
+    def modified_date(self):
+        assert len(self.articles) == 1
+        return self.articles[0].modified_date
+
+    @property
+    def change_commit(self):
+        assert len(self.articles) == 1
+        return self.articles[0].change_commit
+
+    @property
+    def tags(self):
+        assert len(self.articles) == 1
+        return self.articles[0].tags
+
+    @property
+    def tags_signatures(self):
+        assert len(self.articles) == 1
+        return self.articles[0].tags_signatures
 
     @staticmethod
     def get_commit():
