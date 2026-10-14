@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "md2weasypdf"
-version = "0.0.50"
+version = "0.1.0"
 description = "Print PDFs from Markdown Files using Weasyprint"
 readme = "README.md"
 license = "EUPL-1.2"
