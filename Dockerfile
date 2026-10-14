@@ -1,9 +1,11 @@
-FROM python:3.12.4-alpine3.20
-RUN apk --update --upgrade --no-cache add git py3-pip gcc musl-dev python3-dev pango zlib-dev jpeg-dev openjpeg-dev g++ libffi-dev fontconfig ttf-freefont font-noto terminus-font npm udev chromium
+FROM rust:1.90-alpine3.22 AS mmdr
+RUN apk --no-cache add musl-dev
+RUN cargo install mermaid-rs-renderer --version 0.3.1 --locked
 
-ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
+FROM python:3.13-alpine3.22
+RUN apk --no-cache add git pango fontconfig font-dejavu font-noto ttf-freefont terminus-font
 
-RUN npm install -g @mermaid-js/mermaid-cli@11.4.2
+COPY --from=mmdr /usr/local/cargo/bin/mmdr /usr/local/bin/mmdr
 
 COPY ./ /md2weasypdf
-RUN pip install /md2weasypdf
+RUN pip install --no-cache-dir /md2weasypdf

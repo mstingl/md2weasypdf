@@ -1,9 +1,5 @@
 import base64
-import json
-import os
-from io import StringIO
-from subprocess import CalledProcessError, check_call
-from tempfile import TemporaryDirectory
+from subprocess import CalledProcessError, check_output
 
 from markdown import Markdown
 from markdown.extensions import Extension
@@ -26,52 +22,14 @@ class MermaidPreprocessor(FencedBlockPreprocessor):
         if code in self.__generated_file_contents_cache:
             return self.__generated_file_contents_cache[code]
 
-        with TemporaryDirectory() as tempdir:
-            puppeteer_config_path = os.path.join(tempdir, "puppeteer-config.json")
-            with open(puppeteer_config_path, 'w') as config_file:
-                config_file.write(
-                    json.dumps(
-                        {
-                            "args": [
-                                "--no-sandbox",
-                                "--disable-gpu",
-                            ],
-                        }
-                    )
-                )
+        try:
+            svg = check_output(["mmdr", "-e", "svg"], input=code.encode("utf-8"))
 
-            input_path = os.path.join(tempdir, "in.mmd")
-            with open(input_path, 'w') as input_file:
-                input_file.write(code)
+        except (CalledProcessError, FileNotFoundError) as error:
+            raise ValueError("Cannot run mmdr to convert mermaid to image") from error
 
-            output_path = os.path.join(tempdir, "out.png")
-            try:
-                check_call(
-                    [
-                        "mmdc",
-                        "-w",
-                        "2500",
-                        "-s",
-                        "2",
-                        "-i",
-                        input_path,
-                        "-o",
-                        output_path,
-                        "-b",
-                        "transparent",
-                        "-p",
-                        puppeteer_config_path,
-                    ],
-                    shell=True,
-                )
-
-            except CalledProcessError as error:
-                raise ValueError("Cannot run mmdc to convert mermaid to image") from error
-
-            with open(output_path, "rb") as out_file:
-                self.__generated_file_contents_cache[code] = ''.join(str(base64.b64encode(out_file.read()), 'utf-8').splitlines())
-
-            return self.__generated_file_contents_cache[code]
+        self.__generated_file_contents_cache[code] = str(base64.b64encode(svg), "utf-8")
+        return self.__generated_file_contents_cache[code]
 
     def run(self, lines: list[str]) -> list[str]:
         """Match and store Fenced Code Blocks in the `HtmlStash`."""
@@ -86,7 +44,7 @@ class MermaidPreprocessor(FencedBlockPreprocessor):
                     continue
 
                 file_content = self.generate_file_content(m.group('code'))
-                placeholder = self.md.htmlStash.store(f'<img src="data:image/png;base64,{file_content}">')
+                placeholder = self.md.htmlStash.store(f'<img src="data:image/svg+xml;base64,{file_content}">')
                 text = f'{text[:m.start()]}\n{placeholder}\n{text[m.end():]}'
                 pos = m.start() + len(placeholder)
 

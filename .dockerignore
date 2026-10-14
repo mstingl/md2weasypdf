@@ -1,1 +1,5 @@
 .git
+.venv
+out
+*.egg-info
+**/__pycache__

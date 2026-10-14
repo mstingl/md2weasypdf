@@ -134,4 +134,4 @@ To add a placeholder, append the placeholder text within parens to the end of th
 
 ### Mermaid.js
 
-Mermaid.js can be used in code blocks with the language `mermaid`. To convert the mermaid code into an image, [mermaid-cli](https://github.com/mermaid-js/mermaid-cli) is required to be installed on the system.
+Mermaid.js can be used in code blocks with the language `mermaid`. To convert the mermaid code into an image, [mermaid-rs-renderer](https://github.com/1jehuang/mermaid-rs-renderer) (`mmdr`) is required to be installed on the system (`cargo install mermaid-rs-renderer`).
