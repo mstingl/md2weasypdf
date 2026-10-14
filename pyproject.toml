@@ -1,3 +1,45 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "md2weasypdf"
+version = "0.0.50"
+description = "Print PDFs from Markdown Files using Weasyprint"
+readme = "README.md"
+license = "EUPL-1.2"
+license-files = ["LICENSE"]
+authors = [{ name = "Manuel Stingl", email = "contact@stingl.st" }]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+]
+
+requires-python = ">=3.10"
+dependencies = [
+    "jinja2>=3.1.6",
+    "jsonschema>=4.25.1",
+    "lxml>=6.1.0",
+    "markdown>=3.9",
+    "markdown-grid-tables>=0.6.0",
+    "python-frontmatter>=1.1.0",
+    "pyyaml>=6.0.3",
+    "rich>=15.0.0",
+    "typer>=0.23.2",
+    "typing-extensions>=4.15.0",
+    "watchdog>=6.0.0",
+    "weasyprint==65.1",
+]
+
+[project.urls]
+Homepage = "https://github.com/mstingl/md2weasypdf"
+
+[tool.setuptools.packages.find]
+include = ["md2weasypdf*"]
+
+[tool.setuptools.package-data]
+md2weasypdf = ["layouts/**/*"]
+
 [tool.black]
 line-length = 150
 skip-string-normalization = true
